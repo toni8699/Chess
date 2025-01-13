@@ -66,6 +66,7 @@ public class Board {
 
     }
     public void printBoard(){
+        System.out.println("Printing board");
         for (int i = 0; i < 8; i++) {
             for (int j = 0; j < 8; j++) {
                 if (board[i][j] == null) {
@@ -82,7 +83,14 @@ public class Board {
         return board[row][col];
 
     }
-    public void setPiece(int col, int row, Piece piece){
+    /**
+     * Moves the specified piece to a new position on the board.
+     *
+     * @param col the target column index to move the piece to
+     * @param row the target row index to move the piece to
+     * @param piece the Piece object to be moved
+     */
+    public void movePiece(int col, int row, Piece piece){
         board[piece.getRow()][piece.getCol()] = null;
         board[row][col] = piece;
         piece.setCol(col);

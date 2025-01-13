@@ -8,7 +8,7 @@ import javafx.event.EventHandler;
 import javafx.scene.input.MouseEvent;
 
 public class Mouse extends MouseAdapter {
-    Board   board;
+    Board board;
     public Mouse(Board board) {
         this.board = board;
     }
@@ -16,16 +16,16 @@ public class Mouse extends MouseAdapter {
         System.out.print("mouse pressed");
         int col = (int) (e.getX()/100);
         int row = (int) (e.getY()/100);
-        System.out.println(row + " " + col);
         Piece piece = board.getPiece(row, col);
+        System.out.println("picked up " + piece.getColor () + " " + piece.getName());
         if (piece != null) {
             board.setSelectedPiece(piece);
         }
     }
-    public void mouseDragged(MouseEvent e) {
-        if (board.getSelectedPiece() != null) {
-            System.out.println("mouse dragged");
-        }
+    public void mouseDragged(MouseEvent mouseEvent) {
+        Piece p=  board.getSelectedPiece();
+        p.setX((int) mouseEvent.getX() - 50);
+        p.setY((int) mouseEvent.getY() - 50);
 
     }
 /**
@@ -38,18 +38,19 @@ public class Mouse extends MouseAdapter {
  * @param e the MouseEvent triggering this method
  */
     public void mouseReleased(MouseEvent e) {
-        int col = (int) (e.getX() / 100);
-        int row = (int) (e.getY() / 100);
-        System.out.println("mouse released " + row + " " + col);
-
+        System.out.println("mouse released");
         Piece p = board.getSelectedPiece();
-        if (p != null) {
-            System.out.println(p.getName());
-            board.setPiece(p.getX() / 100, p.getY() / 100, p);
+        if (board.getSelectedPiece() != null) {
+            int col = (int) (e.getX()/100);
+            int row = (int) (e.getY()/100);
+            p.setX(col*100);
+            p.setY(row*100);
+            board.movePiece(col, row, p);
+            System.out.println("placed " + board.getSelectedPiece().getName() + " at " + col + "," + row);
         }
-        System.out.println(Arrays.deepToString(board.getPieces()));
-    }
-}
+        board.setSelectedPiece(null);
+    }}
+
 
 
 

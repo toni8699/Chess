@@ -9,7 +9,7 @@ import java.io.InputStream;
 public class Piece {
     public Image image;
     private int x,y;
-    private int col, row, prevcol, prevrow;
+    private int col, row;
     private int color;
     private String name;
 
@@ -18,11 +18,8 @@ public class Piece {
         this.row = row;
         this.col = col;
         this.color = color;
-        x = getX();
-        y = getY();
-        prevcol = col;
-        prevrow = row;
-
+        x = col * 100;
+        y = row * 100;
     }
 
     public Image getURL( String path) throws FileNotFoundException {
@@ -34,11 +31,11 @@ public class Piece {
     }
 
     public int getY() {
-        return this.row * 100;
+        return y;
     }
 
     public int getX() {
-        return this.col *100;
+        return x;
 
     }
     public void setCol(int col) {

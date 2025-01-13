@@ -2,11 +2,11 @@ package Main;
 
 import javafx.scene.canvas.Canvas;
 import javafx.scene.canvas.GraphicsContext;
+import javafx.scene.input.MouseEvent;
 import javafx.scene.layout.Pane;
 import javafx.scene.paint.Color;
 
 import java.awt.event.MouseAdapter;
-import java.awt.event.MouseEvent;
 
 import java.awt.event.MouseMotionListener;
 import java.io.FileNotFoundException;
@@ -37,31 +37,36 @@ public class GamePanel extends Pane implements Runnable {
         this.getChildren().add(canvas);
         gc = canvas.getGraphicsContext2D();
         copyBoard(GameBoard.getPieces());
-        drawBoard();
-        drawPieces();
+
+//        GameBoard.printBoard();
+//        mouse = new Mouse(GameBoard);
+//
+//        Piece p= GameBoard.getPiece(0, 0);
+//        GameBoard.movePiece(0,2, p);
+//        System.out.println( p.getX()/100 + " " + p.getY()/100 );
+//        GameBoard.printBoard();
+//
+//        update();
+//        GameBoard.capture(p);
         GameBoard.printBoard();
         mouse = new Mouse(GameBoard);
-
-        Piece p= GameBoard.getPiece(0, 0);
-        GameBoard.setPiece(0,2, p);
-        System.out.println( p.getX()/100 + " " + p.getY()/100 );
-        GameBoard.printBoard();
-        update();
-        GameBoard.capture(p);
-        GameBoard.printBoard();
-
         canvas.setOnMousePressed(e -> {
             mouse.mousePressed(e);
         });
         canvas.setOnMouseDragged(e -> {
             mouse.mouseDragged(e);
         });
+
         canvas.setOnMouseReleased(e -> {
             mouse.mouseReleased(e);
+            GameBoard.printBoard();
+
         });
 
 
     }
+
+
 
     public void startGameThread() {
         gameThread = new Thread(this);
@@ -94,9 +99,9 @@ public class GamePanel extends Pane implements Runnable {
 
     }
     public void update () {
-        for (Piece p : activePieces) {
-            
-        }
+      //  System.out.println("update called");
+        drawBoard();
+        drawPieces();
     }
 
 
