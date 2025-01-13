@@ -1,31 +1,109 @@
 package Main;
 
+import javafx.scene.canvas.Canvas;
+import javafx.scene.canvas.GraphicsContext;
 import javafx.scene.layout.Pane;
-import javafx.scene.layout.GridPane;
 import javafx.scene.paint.Color;
-import javafx.scene.shape.Rectangle;
+
+import java.awt.event.MouseAdapter;
+import java.awt.event.MouseEvent;
+
+import java.awt.event.MouseMotionListener;
+import java.io.FileNotFoundException;
+import java.lang.reflect.Array;
+import java.util.ArrayList;
+import java.util.Arrays;
+
+import Piece.*;
+
+import static com.sun.java.accessibility.util.AWTEventMonitor.addMouseListener;
+import static com.sun.java.accessibility.util.AWTEventMonitor.addMouseMotionListener;
 
 public class GamePanel extends Pane implements Runnable {
     private final int FPS = 60;
     Thread gameThread;
-    Board board = new Board();
+    private int tilesize = 100;
+    private Board GameBoard;
+    private Canvas canvas;
+    private ArrayList <Piece> activePieces = new ArrayList<>();
+    private GraphicsContext gc;
+    private Mouse mouse;
+    private Piece selectedPiece ;
 
-    public GamePanel() {
-        board.drawBoard(this);
+    public GamePanel(Board GameBoard) throws FileNotFoundException {
+        this.GameBoard =GameBoard;
+        this.activePieces = GameBoard.getActivePieces();
+        canvas = new Canvas(800, 800);
+        this.getChildren().add(canvas);
+        gc = canvas.getGraphicsContext2D();
+        copyBoard(GameBoard.getPieces());
+        drawBoard();
+        drawPieces();
+        GameBoard.printBoard();
+        mouse = new Mouse(GameBoard);
+
+        Piece p= GameBoard.getPiece(0, 0);
+        GameBoard.setPiece(0,2, p);
+        System.out.println( p.getX()/100 + " " + p.getY()/100 );
+        GameBoard.printBoard();
+        update();
+        GameBoard.capture(p);
+        GameBoard.printBoard();
+
+        canvas.setOnMousePressed(e -> {
+            mouse.mousePressed(e);
+        });
+        canvas.setOnMouseDragged(e -> {
+            mouse.mouseDragged(e);
+        });
+        canvas.setOnMouseReleased(e -> {
+            mouse.mouseReleased(e);
+        });
+
+
     }
 
     public void startGameThread() {
         gameThread = new Thread(this);
         gameThread.start();
     }
-    private void update() {
 
+    private void drawBoard() {
+        for (int i = 0; i < 8; i++) {
+            for (int j = 0; j < 8; j++) {
+                if ((i + j) % 2 == 0) {
+                    gc.setFill(Color.WHITESMOKE);
+                } else {
+                    gc.setFill(Color.DARKOLIVEGREEN);
+                }
+                gc.fillRect(i * tilesize, j * tilesize, tilesize, tilesize);
+            }
+        }
     }
 
-    @Override
+    private void drawPieces( ){
+        Piece [][] board = GameBoard.getPieces();
+//        System.out.println(Arrays.deepToString(board));
+        for (int i = 0; i < 8; i++) {
+            for (int j = 0; j < 8; j++) {
+                if (board[i][j] != null) {
+                    gc.drawImage(board[i][j].getImage(), board[i][j].getX(), board[i][j].getY(), tilesize, tilesize);
+                }
+            }
+        }
+
+    }
+    public void update () {
+        for (Piece p : activePieces) {
+            
+        }
+    }
+
+
+
     public void run() {
         //Game loop
-        double drawInterval = 1000000000 / FPS;
+        double drawInterval = (double) 1000000000 / FPS;
         long lastTime = System.nanoTime();
         long currentTime;
         long timer = 0;
@@ -41,4 +119,16 @@ public class GamePanel extends Pane implements Runnable {
         }
 
     }
+    private void copyBoard(Piece[][] board) {
+        for (int i = 0; i < 8; i++) {
+            for (int j = 0; j < 8; j++) {
+                if (board[i][j] != null) {
+                    activePieces.add(board[i][j]);
+                }
+            }
+        }
+
+
+    }
+
 }
