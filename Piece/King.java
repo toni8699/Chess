@@ -1,17 +1,19 @@
 package Piece;
 
 import java.io.FileNotFoundException;
+import java.util.ArrayList;
 
 public class King extends Piece {
+    private ArrayList<Piece> capturedPiece = new ArrayList<>();
     private final String name = "King";
-    public King(int row, int col, int color) throws FileNotFoundException {
-        super(row, col, color);
-        if (color == 0) {
+    public King(int row, int col, Boolean isWhite) throws FileNotFoundException {
+        super(row, col, isWhite);;
+        if (!isWhite) {
             this.image = getURL("/Users/tony/Documents/McGill/W2025/Chess/res/pieces-basic-png/black-king.png");
         }else{
             this.image = getURL("/Users/tony/Documents/McGill/W2025/Chess/res/pieces-basic-png/white-king.png");
         }
-        System.out.println();
+
     }
     @Override
     public String getName() {

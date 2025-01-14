@@ -3,6 +3,7 @@ package Main;
 import javafx.scene.canvas.Canvas;
 import javafx.scene.canvas.GraphicsContext;
 import javafx.scene.input.MouseEvent;
+import javafx.scene.layout.GridPane;
 import javafx.scene.layout.Pane;
 import javafx.scene.paint.Color;
 
@@ -19,45 +20,61 @@ import Piece.*;
 import static com.sun.java.accessibility.util.AWTEventMonitor.addMouseListener;
 import static com.sun.java.accessibility.util.AWTEventMonitor.addMouseMotionListener;
 
-public class GamePanel extends Pane implements Runnable {
+public class GamePanel extends GridPane implements Runnable {
     private final int FPS = 60;
     Thread gameThread;
     private int tilesize = 100;
     private Board GameBoard;
-    private Canvas canvas;
+    private Canvas Boardcanvas;
+    private Canvas Capturedcanvas;
     private ArrayList <Piece> activePieces = new ArrayList<>();
     private GraphicsContext gc;
+    private GraphicsContext capturedGc;
     private Mouse mouse;
     private Piece selectedPiece ;
+    private ArrayList <Piece> capturedPiece;
+    private GridPane capturedGrid;
 
     public GamePanel(Board GameBoard) throws FileNotFoundException {
         this.GameBoard =GameBoard;
         this.activePieces = GameBoard.getActivePieces();
-        canvas = new Canvas(800, 800);
-        this.getChildren().add(canvas);
-        gc = canvas.getGraphicsContext2D();
-        copyBoard(GameBoard.getPieces());
+        this.capturedPiece = GameBoard.getCapturedPiece();
+        for(int i = 0; i < 5; i++) {
+            capturedPiece.add(new Knight(0, i, true));
+        }
+        capturedPiece.add(new Rook(0, 0, true));
+        capturedPiece.add(new King(0, 0, true));
+        capturedPiece.add(new Pawn(0, 0, true));
+        for(int i = 0; i < 5; i++) {
+            capturedPiece.add(new Knight(0, i, false));
+        }
+        capturedPiece.add(new Rook(0, 0, false));
+        capturedPiece.add(new King(0, 0, false));
+        capturedPiece.add(new Pawn(0, 0, false));
 
-//        GameBoard.printBoard();
-//        mouse = new Mouse(GameBoard);
-//
-//        Piece p= GameBoard.getPiece(0, 0);
-//        GameBoard.movePiece(0,2, p);
-//        System.out.println( p.getX()/100 + " " + p.getY()/100 );
-//        GameBoard.printBoard();
-//
-//        update();
-//        GameBoard.capture(p);
-        GameBoard.printBoard();
+        capturedGrid = new GridPane();
+        this.add(capturedGrid, 1, 0);
+
+
+
+
+        Boardcanvas = new Canvas(800, 800);
+        Capturedcanvas = new Canvas(300, 800);
+        gc = Boardcanvas.getGraphicsContext2D();
+        capturedGc = Capturedcanvas.getGraphicsContext2D();
+        this.add(Boardcanvas, 0, 0);
+        this.add(Capturedcanvas, 1, 0);
+        drawCapturedPieces();
+
         mouse = new Mouse(GameBoard);
-        canvas.setOnMousePressed(e -> {
+        Boardcanvas.setOnMousePressed(e -> {
             mouse.mousePressed(e);
         });
-        canvas.setOnMouseDragged(e -> {
+        Boardcanvas.setOnMouseDragged(e -> {
             mouse.mouseDragged(e);
         });
 
-        canvas.setOnMouseReleased(e -> {
+        Boardcanvas.setOnMouseReleased(e -> {
             mouse.mouseReleased(e);
             GameBoard.printBoard();
 
@@ -85,8 +102,61 @@ public class GamePanel extends Pane implements Runnable {
             }
         }
     }
+    private void drawCapturedPieces() {
+        int blackCapturedX = 0;
+        int blackCapturedY = 500;
+        int whiteCapturedX = 0;
+        int whiteCapturedY = 0;
+        int size = 75;
+        int maxWidth = 200; // Width of the captured canvas
+        for (Piece p : capturedPiece) {
+            if (p.isWhite()) {
+                capturedGc.drawImage(p.getImage(), whiteCapturedX, whiteCapturedY, size, size);
+                whiteCapturedX += 40;
+                if (whiteCapturedX >= maxWidth) {
+                    whiteCapturedX = 0;
+                    whiteCapturedY +=100;
+                }
+            }else{
+                capturedGc.drawImage(p.getImage(), blackCapturedX, blackCapturedY, size, size);
+                blackCapturedX +=40;
+            } if (blackCapturedX >= maxWidth) {
+                blackCapturedX = 0;
+                blackCapturedY +=100;
+            }
 
-    private void drawPieces( ){
+        }}
+//        capturedGrid.getChildren().clear(); // Clear the grid before redrawing
+//        int blackRow = 0;
+//        int blackCol = 0;
+//        int whiteRow = 0;
+//        int whiteCol = 0;
+//
+//        for (Piece p : capturedPiece) {
+//            Canvas pieceCanvas = new Canvas(tilesize / 2, tilesize / 2);
+//            GraphicsContext pieceGc = pieceCanvas.getGraphicsContext2D();
+//            pieceGc.drawImage(p.getImage(), 0, 0, tilesize / 2, tilesize / 2);
+//
+//            if (p.isWhite()) {
+//                capturedGrid.add(pieceCanvas, blackCol, blackRow);
+//                blackCol++;
+//                if (blackCol * (tilesize / 2) >= 200) { // Check if the column exceeds the width
+//                    blackCol = 0;
+//                    blackRow++;
+//                }
+//            } else {
+//                capturedGrid.add(pieceCanvas, whiteCol, whiteRow + 10); // Offset for black pieces
+//                whiteCol++;
+//                if (whiteCol * (tilesize / 2) >= 200) { // Check if the column exceeds the width
+//                    whiteCol = 0;
+//                    whiteRow++;
+//                }
+//            }
+//        }
+//
+//    }
+
+    private void drawPieces(){
         Piece [][] board = GameBoard.getPieces();
 //        System.out.println(Arrays.deepToString(board));
         for (int i = 0; i < 8; i++) {

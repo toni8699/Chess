@@ -17,7 +17,6 @@ public class Mouse extends MouseAdapter {
         int col = (int) (e.getX()/100);
         int row = (int) (e.getY()/100);
         Piece piece = board.getPiece(row, col);
-        System.out.println("picked up " + piece.getColor () + " " + piece.getName());
         if (piece != null) {
             board.setSelectedPiece(piece);
         }

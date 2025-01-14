@@ -10,14 +10,14 @@ public class Piece {
     public Image image;
     private int x,y;
     private int col, row;
-    private int color;
+    private Boolean isWhite;
     private String name;
 
 
-    public Piece(int row, int col, int color) {
+    public Piece(int row, int col, Boolean isWhite) {
         this.row = row;
         this.col = col;
-        this.color = color;
+        this.isWhite = isWhite;
         x = col * 100;
         y = row * 100;
     }
@@ -53,12 +53,8 @@ public class Piece {
     public String getName(){
         return name;
     }
-    public String getColor(){
-        if(color == 0){
-            return "Black";
-        }else{
-            return "White";
-        }
+    public Boolean isWhite(){
+        return isWhite;
     }
 
     public void setX(int x) {
