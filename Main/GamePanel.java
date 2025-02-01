@@ -6,7 +6,8 @@ import javafx.scene.input.MouseEvent;
 import javafx.scene.layout.GridPane;
 import javafx.scene.layout.Pane;
 import javafx.scene.paint.Color;
-
+import javafx.scene.text.Font;
+import java.awt.*;
 import java.awt.event.MouseAdapter;
 
 import java.awt.event.MouseMotionListener;
@@ -39,31 +40,17 @@ public class GamePanel extends GridPane implements Runnable {
         this.GameBoard =GameBoard;
         this.activePieces = GameBoard.getActivePieces();
         this.capturedPiece = GameBoard.getCapturedPiece();
-        for(int i = 0; i < 5; i++) {
-            capturedPiece.add(new Knight(0, i, true));
-        }
-        capturedPiece.add(new Rook(0, 0, true));
-        capturedPiece.add(new King(0, 0, true));
-        capturedPiece.add(new Pawn(0, 0, true));
-        for(int i = 0; i < 5; i++) {
-            capturedPiece.add(new Knight(0, i, false));
-        }
-        capturedPiece.add(new Rook(0, 0, false));
-        capturedPiece.add(new King(0, 0, false));
-        capturedPiece.add(new Pawn(0, 0, false));
-
         capturedGrid = new GridPane();
         this.add(capturedGrid, 1, 0);
-
-
-
-
         Boardcanvas = new Canvas(800, 800);
         Capturedcanvas = new Canvas(300, 800);
         gc = Boardcanvas.getGraphicsContext2D();
         capturedGc = Capturedcanvas.getGraphicsContext2D();
         this.add(Boardcanvas, 0, 0);
         this.add(Capturedcanvas, 1, 0);
+
+        capturedPiece.add(new King(0, 0, true));
+
         drawCapturedPieces();
 
         mouse = new Mouse(GameBoard);
@@ -77,8 +64,14 @@ public class GamePanel extends GridPane implements Runnable {
         Boardcanvas.setOnMouseReleased(e -> {
             mouse.mouseReleased(e);
             GameBoard.printBoard();
-
         });
+        Boardcanvas.setOnMouseClicked(e -> {
+            mouse.mouseClicked(e);
+            drawPossibleMoves(GameBoard.getSelectedPiece());
+        });
+
+        System.out.println( GameBoard.isEmpty(0, 0));
+        System.out.println(GameBoard.getPieces()[0][1].getName() + " " + GameBoard.getPieces()[0][1].getColor());
 
 
     }
@@ -90,7 +83,22 @@ public class GamePanel extends GridPane implements Runnable {
         gameThread.start();
     }
 
+    private void drawPossibleMoves(Piece selectedPiece) {
+if (selectedPiece != null) {
+    for (int i = 0; i < 8; i++) {
+        for (int j = 0; j < 8; j++) {
+            if (selectedPiece.canMove(i, j)) {
+                gc.setFill(Color.YELLOW);
+                gc.fillRect(i * tilesize, j * tilesize, tilesize, tilesize);
+            }
+        }
+    }
+}
+    }
+
+
     private void drawBoard() {
+
         for (int i = 0; i < 8; i++) {
             for (int j = 0; j < 8; j++) {
                 if ((i + j) % 2 == 0) {
@@ -100,6 +108,18 @@ public class GamePanel extends GridPane implements Runnable {
                 }
                 gc.fillRect(i * tilesize, j * tilesize, tilesize, tilesize);
             }
+        }
+        // Draw a thick border around the board
+        gc.setStroke(Color.BLACK);
+        gc.setLineWidth(1);
+        gc.strokeRect(0, 0, 8 * tilesize, 8 * tilesize);
+
+        // Draw coordinates 1-8 and a-h
+        gc.setFill(Color.BLACK);
+        gc.setFont(Font.font(24));
+        for (int i = 0; i <=8; i++) {
+            gc.fillText(String.valueOf(8 - i), 10, (i + 1) * tilesize - 10);
+            gc.fillText(String.valueOf((char) ('a' + i)), (i + 1) * tilesize - 20, 10);
         }
     }
     private void drawCapturedPieces() {
@@ -126,35 +146,6 @@ public class GamePanel extends GridPane implements Runnable {
             }
 
         }}
-//        capturedGrid.getChildren().clear(); // Clear the grid before redrawing
-//        int blackRow = 0;
-//        int blackCol = 0;
-//        int whiteRow = 0;
-//        int whiteCol = 0;
-//
-//        for (Piece p : capturedPiece) {
-//            Canvas pieceCanvas = new Canvas(tilesize / 2, tilesize / 2);
-//            GraphicsContext pieceGc = pieceCanvas.getGraphicsContext2D();
-//            pieceGc.drawImage(p.getImage(), 0, 0, tilesize / 2, tilesize / 2);
-//
-//            if (p.isWhite()) {
-//                capturedGrid.add(pieceCanvas, blackCol, blackRow);
-//                blackCol++;
-//                if (blackCol * (tilesize / 2) >= 200) { // Check if the column exceeds the width
-//                    blackCol = 0;
-//                    blackRow++;
-//                }
-//            } else {
-//                capturedGrid.add(pieceCanvas, whiteCol, whiteRow + 10); // Offset for black pieces
-//                whiteCol++;
-//                if (whiteCol * (tilesize / 2) >= 200) { // Check if the column exceeds the width
-//                    whiteCol = 0;
-//                    whiteRow++;
-//                }
-//            }
-//        }
-//
-//    }
 
     private void drawPieces(){
         Piece [][] board = GameBoard.getPieces();
@@ -172,6 +163,8 @@ public class GamePanel extends GridPane implements Runnable {
       //  System.out.println("update called");
         drawBoard();
         drawPieces();
+        drawCapturedPieces();
+
     }
 
 

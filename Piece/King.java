@@ -19,5 +19,14 @@ public class King extends Piece {
     public String getName() {
         return name;
     }
+    @Override
+    public boolean canMove(int row, int col) {
+        if (Math.abs(row - this.getRow()) > 1 || Math.abs(col - this.getCol()) > 1) {
+            return false;
+        }
+
+
+        return true;
+    }
 
 }

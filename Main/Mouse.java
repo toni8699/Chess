@@ -8,6 +8,7 @@ import javafx.event.EventHandler;
 import javafx.scene.input.MouseEvent;
 
 public class Mouse extends MouseAdapter {
+    boolean clicked = false;
     Board board;
     public Mouse(Board board) {
         this.board = board;
@@ -19,6 +20,24 @@ public class Mouse extends MouseAdapter {
         Piece piece = board.getPiece(row, col);
         if (piece != null) {
             board.setSelectedPiece(piece);
+        }
+    }
+    public void mouseClicked(MouseEvent e) {
+        System.out.print("mouse clicked");
+        if (board.getSelectedPiece() == null) {
+            int col = (int) (e.getX()/100);
+            int row = (int) (e.getY()/100);
+            Piece piece = board.getPiece(row, col);
+            if (piece != null) {
+                board.setSelectedPiece(piece);
+            }
+        }else{
+            int col = (int) (e.getX()/100);
+            int row = (int) (e.getY()/100);
+            if (board.isValidMove(board.getSelectedPiece(), row, col)) {
+                board.movePiece(col, row, board.getSelectedPiece());
+
+            }
         }
     }
     public void mouseDragged(MouseEvent mouseEvent) {
@@ -36,19 +55,29 @@ public class Mouse extends MouseAdapter {
  *
  * @param e the MouseEvent triggering this method
  */
-    public void mouseReleased(MouseEvent e) {
-        System.out.println("mouse released");
-        Piece p = board.getSelectedPiece();
-        if (board.getSelectedPiece() != null) {
-            int col = (int) (e.getX()/100);
-            int row = (int) (e.getY()/100);
-            p.setX(col*100);
-            p.setY(row*100);
+public void mouseReleased(MouseEvent e) {
+    System.out.println("mouse released");
+    Piece p = board.getSelectedPiece();
+    if (p != null) {
+        int originalCol = p.getCol();
+        int originalRow = p.getRow();
+        int col = (int) (e.getX() / 100);
+        int row = (int) (e.getY() / 100);
+        if (board.isValidMove(p, row, col)) {
+            System.out.println(p.getName() + " moved from " + originalRow + "," + originalCol + " to " + row + "," + col);
             board.movePiece(col, row, p);
-            System.out.println("placed " + board.getSelectedPiece().getName() + " at " + col + "," + row);
+//            p.setX(col * 100);
+//            p.setY(row * 100);
+        } else {
+            // Reset the piece to its original position
+            p.setX(originalCol * 100);
+            p.setY(originalRow * 100);
+            System.out.println(p.getName() + " cannot move from " + originalRow + "," + originalCol + " to " + row + "," + col);
         }
         board.setSelectedPiece(null);
-    }}
+    }
+}
+}
 
 
 

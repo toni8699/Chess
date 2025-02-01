@@ -53,6 +53,13 @@ public class Piece {
     public String getName(){
         return name;
     }
+    public String getColor(){
+        if (isWhite){
+            return "White";
+        }else{
+            return "Black";
+        }
+    }
     public Boolean isWhite(){
         return isWhite;
     }
@@ -64,4 +71,9 @@ public class Piece {
     public void setY(int y) {
         this.y = y;
     }
+    public boolean canMove(int row, int col){
+        return true;
+    }
+
 }
+

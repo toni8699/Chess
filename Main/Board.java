@@ -11,6 +11,7 @@ public class Board {
     private ArrayList<Piece> activePieces = new ArrayList<>();
     private ArrayList<Piece> capturedPieces = new ArrayList<>();
     private Piece selectedPiece;
+    private boolean whiteTurn = true;
 
     public Board() throws FileNotFoundException {
         board = new Piece[col][row];
@@ -90,15 +91,48 @@ public class Board {
      * @param piece the Piece object to be moved
      */
     public void movePiece(int col, int row, Piece piece){
-        board[piece.getRow()][piece.getCol()] = null;
-        board[row][col] = piece;
-        piece.setCol(col);
-        piece.setRow(row);
+        if (isValidMove(piece, row, col)) {
+            System.out.println(piece.getName() + " moved from " + piece.getRow() + "," + piece.getCol() + " to " + row + "," + col);
+            board[piece.getRow()][piece.getCol()] = null;
+            board[row][col] = piece;
+            piece.setCol(col);
+            piece.setRow(row);
+            switchTurn();
+        }else{
+            System.out.println(piece.getName() + " cannot move from " + piece.getRow() + "," + piece.getCol() + " to " + row + "," + col);
+        }
+
     }
+
+
+    public boolean isEmpty(int row, int col){
+        return board[row][col] == null;
+    }
+    public boolean isCapturable(Piece piece){
+
+        return piece.isWhite() != selectedPiece.isWhite();
+    }
+    public boolean isValidMove(Piece piece, int row, int col){
+        Piece pieceAtRowCol = board[row][col];
+        if (isEmpty(row, col) || isCapturable(pieceAtRowCol)){
+            if (pieceAtRowCol != null){
+                capture(pieceAtRowCol);
+            }
+            return piece.canMove(row, col);
+        }
+        return false;
+    }
+
     public void capture(Piece piece){
         capturedPieces.add(piece);
         System.out.println(piece.getName() + " captured" + piece.getRow() + " " + piece.getCol());
         board[piece.getRow()][piece.getCol()] = null;
+    }
+    public void switchTurn(){
+        whiteTurn = !whiteTurn;
+    }
+    public boolean isWhiteTurn(){
+        return whiteTurn;
     }
     public Piece[][] getPieces(){
         return board;
