@@ -1,17 +1,21 @@
 package Piece;
 
+import Main.Move;
 import javafx.scene.image.Image;
 
 import java.io.FileInputStream;
 import java.io.FileNotFoundException;
 import java.io.InputStream;
+import java.util.ArrayList;
 
 public class Piece {
     public Image image;
     private int x,y;
     private int col, row;
-    private Boolean isWhite;
+    private final Boolean isWhite;
     private String name;
+    private boolean hasMoved = false;
+    private ArrayList <Move> moves = new ArrayList<>();
 
 
     public Piece(int row, int col, Boolean isWhite) {
@@ -74,6 +78,22 @@ public class Piece {
     public boolean canMove(int row, int col){
         return true;
     }
+    public void calculateMoves(){
+        return ;
+    }
 
+    public ArrayList<Move> getMoves() {
+        return moves;
+    }
+
+    public void setMoves(ArrayList<Move> moves) {
+        this.moves = moves;
+    }
+    public boolean hasMoved() {
+        return hasMoved;
+    }
+    public void setHasMoved(boolean hasMoved) {
+        this.hasMoved = hasMoved;
+    }
 }
 

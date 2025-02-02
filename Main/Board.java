@@ -3,6 +3,7 @@ package Main;
 import Piece.*;
 import java.io.FileNotFoundException;
 import java.util.ArrayList;
+import java.util.HashMap;
 
 public class Board {
     final int col = 8;
@@ -18,6 +19,7 @@ public class Board {
         setBoard();
 
     }
+
     private void initBoard() throws FileNotFoundException {
     // Initialize pawns
     for (int i = 0; i < 8; i++) {
@@ -99,6 +101,8 @@ public class Board {
             piece.setRow(row);
             piece.setX(col * 100);
             piece.setY(row * 100);
+            piece.calculateMoves();
+            piece.setHasMoved(true);
             switchTurn();
         }else{
             System.out.println(piece.getName() + " cannot move from " + piece.getRow() + "," + piece.getCol() + " to " + row + "," + col);
