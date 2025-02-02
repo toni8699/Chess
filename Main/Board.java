@@ -135,14 +135,28 @@ public class Board {
             return false;
         }
         if (piece.canMove(targetRow, targetCol)) {
-            if (isEmpty(targetRow, targetCol) || isCapturable(pieceAtRowCol)) {
-                if (pieceAtRowCol != null) {
-                    System.out.println(pieceAtRowCol.getName() + " captured");
-                    capture(pieceAtRowCol);
+            if (piece instanceof Knight) {
+                if (isEmpty(targetRow, targetCol) || isCapturable(pieceAtRowCol)) {
+                    if (pieceAtRowCol != null) {
+                        System.out.println(pieceAtRowCol.getName() + " captured");
+                        capture(pieceAtRowCol);
+                    }
+                    return true;
                 }
-                return true;
+            } else {
+                if (isPathClear(piece.getRow(), piece.getCol(), targetRow, targetCol)) {
+                    if (isEmpty(targetRow, targetCol) || isCapturable(pieceAtRowCol)) {
+                        if (pieceAtRowCol != null) {
+                            System.out.println(pieceAtRowCol.getName() + " captured");
+                            capture(pieceAtRowCol);
+                        }
+                        return true;
+                    }
+                }
             }
         }
+
+
         return false;
     }
 
@@ -176,6 +190,23 @@ public class Board {
 
     public ArrayList<Piece> getCapturedPiece() {
         return capturedPieces;
+    }
+    public boolean isPathClear(int startRow, int startCol, int endRow, int endCol) {
+        int rowStep = Integer.compare(endRow, startRow);
+        int colStep = Integer.compare(endCol, startCol);
+
+        int currentRow = startRow + rowStep;
+        int currentCol = startCol + colStep;
+
+        while (currentRow != endRow || currentCol != endCol) {
+            if (board[currentRow][currentCol] != null) {
+                return false;
+            }
+            currentRow += rowStep;
+            currentCol += colStep;
+        }
+
+        return true;
     }
 }
 

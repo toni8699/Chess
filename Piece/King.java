@@ -26,16 +26,11 @@ public class King extends Piece {
     }
     @Override
     public boolean canMove(int TargetRow, int TargetCol) {
-//        for  (Move move : moves) {
-//            System.out.println("move : " + move.getRow() + " " + move.getCol());
-//        }
-//        System.out.println("move list : " + moves);
         for (Move move : moves) {
             if (move.getRow() == TargetRow && move.getCol() == TargetCol) {
                 return true;
             }
         }
-
         System.out.println("can't move");
         return false;
 
