@@ -11,8 +11,11 @@ public class King extends Piece {
     private final String name = "King";
     public King(int row, int col, Boolean isWhite) throws FileNotFoundException {
         super(row, col, isWhite);
-        System.out.println(this.getColor()+ " " + this.getName()+ " " + this.getRow() + " " + this.getCol());
         calculateMoves();
+        for (Move move : moves) {
+            System.out.println("king moves:");
+            System.out.println("move : " + move.getRow() + " " + move.getCol());
+        }
         if (!isWhite) {
             this.image = getURL("/Users/tony/Documents/McGill/W2025/Chess/res/pieces-basic-png/black-king.png");
         }else{
@@ -35,6 +38,7 @@ public class King extends Piece {
         return false;
 
     }
+
 
 
     @Override

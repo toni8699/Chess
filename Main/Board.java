@@ -123,6 +123,7 @@ public class Board {
      * Checks if the target location is empty or occupied by a piece of
      * the opposite color. If the target location is occupied by a piece
      * of the opposite color, the piece is captured and removed from the board.
+     *
      * @param piece the Piece object to be moved
      * @param targetRow the target row index to move the piece to
      * @param targetCol the target column index to move the piece to
@@ -130,12 +131,17 @@ public class Board {
      */
     public boolean isValidMove(Piece piece, int targetRow, int targetCol) {
         Piece pieceAtRowCol = board[targetRow][targetCol];
+
+        // Check if it's the correct player's turn
         if ((isWhiteTurn() && !piece.isWhite()) || (!isWhiteTurn() && piece.isWhite())) {
             System.out.println("Not your turn");
             return false;
         }
+
+        // Check if the piece can legally move to the target location
         if (piece.canMove(targetRow, targetCol)) {
             if (piece instanceof Knight) {
+                // Knights can jump over other pieces, so path clearance isn't necessary
                 if (isEmpty(targetRow, targetCol) || isCapturable(pieceAtRowCol)) {
                     if (pieceAtRowCol != null) {
                         System.out.println(pieceAtRowCol.getName() + " captured");
@@ -144,6 +150,7 @@ public class Board {
                     return true;
                 }
             } else {
+                // For other pieces, ensure the path to the target location is clear
                 if (isPathClear(piece.getRow(), piece.getCol(), targetRow, targetCol)) {
                     if (isEmpty(targetRow, targetCol) || isCapturable(pieceAtRowCol)) {
                         if (pieceAtRowCol != null) {
@@ -156,9 +163,10 @@ public class Board {
             }
         }
 
-
         return false;
     }
+
+
 
     public void capture(Piece piece){
         capturedPieces.add(piece);
