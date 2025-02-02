@@ -65,10 +65,10 @@ public class GamePanel extends GridPane implements Runnable {
             mouse.mouseReleased(e);
             GameBoard.printBoard();
         });
-        Boardcanvas.setOnMouseClicked(e -> {
-            mouse.mouseClicked(e);
-            drawPossibleMoves(GameBoard.getSelectedPiece());
-        });
+//        Boardcanvas.setOnMouseClicked(e -> {
+//            mouse.mouseClicked(e);
+//            drawPossibleMoves(GameBoard.getSelectedPiece());
+//        });
 
         System.out.println( GameBoard.isEmpty(0, 0));
         System.out.println(GameBoard.getPieces()[0][1].getName() + " " + GameBoard.getPieces()[0][1].getColor());

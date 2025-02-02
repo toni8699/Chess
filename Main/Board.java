@@ -97,6 +97,8 @@ public class Board {
             board[row][col] = piece;
             piece.setCol(col);
             piece.setRow(row);
+            piece.setX(col * 100);
+            piece.setY(row * 100);
             switchTurn();
         }else{
             System.out.println(piece.getName() + " cannot move from " + piece.getRow() + "," + piece.getCol() + " to " + row + "," + col);
@@ -112,19 +114,37 @@ public class Board {
 
         return piece.isWhite() != selectedPiece.isWhite();
     }
-    public boolean isValidMove(Piece piece, int row, int col){
-        Piece pieceAtRowCol = board[row][col];
-        if (isEmpty(row, col) || isCapturable(pieceAtRowCol)){
-            if (pieceAtRowCol != null){
-                capture(pieceAtRowCol);
+    /**
+     * Determines if a piece can be moved to a specific target location.
+     * Checks if the target location is empty or occupied by a piece of
+     * the opposite color. If the target location is occupied by a piece
+     * of the opposite color, the piece is captured and removed from the board.
+     * @param piece the Piece object to be moved
+     * @param targetRow the target row index to move the piece to
+     * @param targetCol the target column index to move the piece to
+     * @return true if the piece can be moved to the target location, false otherwise
+     */
+    public boolean isValidMove(Piece piece, int targetRow, int targetCol) {
+        Piece pieceAtRowCol = board[targetRow][targetCol];
+        if ((isWhiteTurn() && !piece.isWhite()) || (!isWhiteTurn() && piece.isWhite())) {
+            System.out.println("Not your turn");
+            return false;
+        }
+        if (piece.canMove(targetRow, targetCol)) {
+            if (isEmpty(targetRow, targetCol) || isCapturable(pieceAtRowCol)) {
+                if (pieceAtRowCol != null) {
+                    System.out.println(pieceAtRowCol.getName() + " captured");
+                    capture(pieceAtRowCol);
+                }
+                return true;
             }
-            return piece.canMove(row, col);
         }
         return false;
     }
 
     public void capture(Piece piece){
         capturedPieces.add(piece);
+        activePieces.remove(piece);
         System.out.println(piece.getName() + " captured" + piece.getRow() + " " + piece.getCol());
         board[piece.getRow()][piece.getCol()] = null;
     }
