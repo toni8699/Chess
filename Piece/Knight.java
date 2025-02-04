@@ -1,5 +1,6 @@
 package Piece;
 
+import Main.Board;
 import Main.Move;
 
 import java.io.FileNotFoundException;
@@ -7,13 +8,14 @@ import java.util.ArrayList;
 
 public class Knight extends Piece {
     private final String name = "Knight";
+    private Board board;
+
     private ArrayList <Move> moves = new ArrayList<>();
-    public Knight(int row, int col, Boolean isWhite) throws FileNotFoundException {
-        super(row, col, isWhite);
+    public Knight(int row, int col, Boolean isWhite, Board board) throws FileNotFoundException {
+        super(row, col, isWhite,board);
         calculateMoves();
-//        for (Move move : moves) {
-//            System.out.println("move : " + move.getRow() + " " + move.getCol());
-//        }
+        System.out.println( name+ "moves : " + moves);
+
         if (!isWhite) {
             this.image = getURL("/Users/tony/Documents/McGill/W2025/Chess/res/pieces-basic-png/black-knight.png");
         }else{
@@ -33,9 +35,13 @@ public class Knight extends Piece {
             }
         }
         return false;}
+    public ArrayList<Move> getMoves() {
+        return moves;
+    }
 
     @Override
     public void calculateMoves() {
+        moves = new ArrayList<>();
         int currentRow = this.getRow();
         int currentCol = this.getCol();
         int[][] directions = {{2, 1}, {2, -1}, {-2, 1}, {-2, -1}, {1, 2}, {1, -2}, {-1, 2}, {-1, -2}};
@@ -49,4 +55,5 @@ public class Knight extends Piece {
     }
 
 }
+
 }

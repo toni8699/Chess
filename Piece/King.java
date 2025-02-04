@@ -1,5 +1,6 @@
 package Piece;
 
+import Main.Board;
 import Main.Move;
 
 import java.io.FileNotFoundException;
@@ -9,13 +10,12 @@ public class King extends Piece {
     private ArrayList<Piece> capturedPiece = new ArrayList<>();
     private ArrayList <Move> moves = new ArrayList<>();
     private final String name = "King";
-    public King(int row, int col, Boolean isWhite) throws FileNotFoundException {
-        super(row, col, isWhite);
+    private Board board;
+    public King(int row, int col, Boolean isWhite, Board board) throws FileNotFoundException {
+        super(row, col, isWhite,board);
+        this.board = board;
         calculateMoves();
-        for (Move move : moves) {
-            System.out.println("king moves:");
-            System.out.println("move : " + move.getRow() + " " + move.getCol());
-        }
+
         if (!isWhite) {
             this.image = getURL("/Users/tony/Documents/McGill/W2025/Chess/res/pieces-basic-png/black-king.png");
         }else{
@@ -38,18 +38,27 @@ public class King extends Piece {
         return false;
 
     }
+    public ArrayList<Move> getMoves() {
+        return moves;
+    }
 
 
 
     @Override
     public void calculateMoves() {
-        int currentRow = this.getRow();
-        int currentCol = this.getCol();
-        for (int i =-1 ;i<=1 ; i++) {
-            for (int j =-1 ;j<=1 ; j++) {
-                if (currentRow + i >= 0 && currentRow + i <= 7 && currentCol + j >= 0 && currentCol + j <= 7) {
-                    Move move = new Move(currentRow + i, currentCol + j);
-                    moves.add(move);
+        moves = new ArrayList<>();
+        int[][] directions = {{1, 0}, {-1, 0}, {0, 1}, {0, -1}, {1, 1}, {-1, -1}, {1, -1}, {-1, 1}};
+        for (int[] direction : directions) {
+            int newRow = this.getRow() + direction[0];
+            int newCol = this.getCol() + direction[1];
+
+            if (newRow >= 0 && newRow < 8 && newCol >= 0 && newCol < 8) {
+                if (board.isEmpty(newRow, newCol)) {
+                    moves.add(new Move(newRow, newCol));
+                } else {
+                    if (board.getPiece(newRow, newCol).getColor() != this.getColor()) {
+                        moves.add(new Move(newRow, newCol));
+                    }
                 }
             }
         }

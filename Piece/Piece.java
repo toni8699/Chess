@@ -1,5 +1,6 @@
 package Piece;
 
+import Main.Board;
 import Main.Move;
 import javafx.scene.image.Image;
 
@@ -8,7 +9,7 @@ import java.io.FileNotFoundException;
 import java.io.InputStream;
 import java.util.ArrayList;
 
-public class Piece {
+public abstract class Piece {
     public Image image;
     private int x,y;
     private int col, row;
@@ -16,9 +17,10 @@ public class Piece {
     private String name;
     private boolean hasMoved = false;
     private ArrayList <Move> moves = new ArrayList<>();
+    private Board board;
 
 
-    public Piece(int row, int col, Boolean isWhite) {
+    public Piece(int row, int col, Boolean isWhite, Board board) throws FileNotFoundException {
         this.row = row;
         this.col = col;
         this.isWhite = isWhite;
@@ -83,11 +85,14 @@ public class Piece {
     }
 
     public ArrayList<Move> getMoves() {
+        for (Move move : moves) {
+            System.out.println( this.getName()  +"moves : " + move.getRow() + " " + move.getCol());
+        }
         return moves;
     }
 
-    public void setMoves(ArrayList<Move> moves) {
-        this.moves = moves;
+    public void addMoves(Move move) {
+        moves.add( move);
     }
     public boolean hasMoved() {
         return hasMoved;
@@ -95,5 +100,13 @@ public class Piece {
     public void setHasMoved(boolean hasMoved) {
         this.hasMoved = hasMoved;
     }
+    public void removeMove(Move move) {
+        for (Move m : moves) {
+            if (m.getRow() == move.getRow() && m.getCol() == move.getCol()) {
+                moves.remove(m);
+            }
+        }
+    }
+
 }
 

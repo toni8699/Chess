@@ -9,9 +9,11 @@ import javafx.scene.input.MouseEvent;
 
 public class Mouse extends MouseAdapter {
     boolean clicked = false;
+    GamePanel panel;
     Board board;
-    public Mouse(Board board) {
+    public Mouse(Board board, GamePanel panel) {
         this.board = board;
+        this.panel = panel;
     }
     public void mousePressed(MouseEvent e) {
         System.out.print("mouse pressed");
@@ -19,7 +21,11 @@ public class Mouse extends MouseAdapter {
         int row = (int) (e.getY()/100);
         Piece piece = board.getPiece(row, col);
         if (piece != null) {
+            piece.calculateMoves();
             board.setSelectedPiece(piece);
+            panel.drawHighlightedMoves(piece);
+            panel.update();
+
         }
     }
 //    public void mouseClicked(MouseEvent e) {

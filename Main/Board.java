@@ -3,7 +3,6 @@ package Main;
 import Piece.*;
 import java.io.FileNotFoundException;
 import java.util.ArrayList;
-import java.util.HashMap;
 
 public class Board {
     final int col = 8;
@@ -23,34 +22,34 @@ public class Board {
     private void initBoard() throws FileNotFoundException {
     // Initialize pawns
     for (int i = 0; i < 8; i++) {
-        board[1][i] = new Pawn(1, i, false); // black pawns
-        board[6][i] = new Pawn(6, i, true); // white pawns
+        board[1][i] = new Pawn(1, i, false,this); // black pawns
+        board[6][i] = new Pawn(6, i, true,this); // white pawns
     }
 
     // Initialize rooks
-    board[0][0] = new Rook(0, 0, false); // black rook
-    board[0][7] = new Rook(0, 7, false); // black rook
-    board[7][0] = new Rook(7, 0, true); // white rook
-    board[7][7] = new Rook(7, 7, true); // white rook
+    board[0][0] = new Rook(0, 0, false, this); // black rook
+    board[0][7] = new Rook(0, 7, false,this); // black rook
+    board[7][0] = new Rook(7, 0, true,this); // white rook
+    board[7][7] = new Rook(7, 7, true,this); // white rook
 
     // Initialize bishops
-    board[0][2] = new Bishop(0, 2, false); // black bishop
-    board[0][5] = new Bishop(0, 5, false); // black bishop
-    board[7][2] = new Bishop(7, 2, true); // white bishop
-    board[7][5] = new Bishop(7, 5, true); // white bishop
+    board[0][2] = new Bishop(0, 2, false,this); // black bishop
+    board[0][5] = new Bishop(0, 5, false,this); // black bishop
+    board[7][2] = new Bishop(7, 2, true,this); // white bishop
+    board[7][5] = new Bishop(7, 5, true,this); // white bishop
 
     // Initialize knights
-    board[0][1] = new Knight(0, 1, false); // black knight
-    board[0][6] = new Knight(0, 6, false); // black knight
-    board[7][1] = new Knight(7, 1, true); // white knight
-    board[7][6] = new Knight(7, 6,true ); // white knight
+    board[0][1] = new Knight(0, 1, false,this); // black knight
+    board[0][6] = new Knight(0, 6, false,this); // black knight
+    board[7][1] = new Knight(7, 1, true,this); // white knight
+    board[7][6] = new Knight(7, 6,true,this ); // white knight
 
 
         // Initialize queens and kings
-    board[0][3] = new Queen(0, 3, false); // black queen
-    board[0][4] = new King(0, 4, false); // black king
-    board[7][3] = new Queen(7, 3, true); // white queen
-    board[7][4] = new King(7, 4, true); // white king
+    board[0][3] = new Queen(0, 3, false,this); // black queen
+    board[0][4] = new King(0, 4, false,this); // black king
+    board[7][3] = new Queen(7, 3, true,this); // white queen
+    board[7][4] = new King(7, 4, true,this); // white king
 }
 
     /**
@@ -101,7 +100,10 @@ public class Board {
             piece.setRow(row);
             piece.setX(col * 100);
             piece.setY(row * 100);
+            //recalculate moves
             piece.calculateMoves();
+
+            System.out.println("moves: " + piece.getMoves());
             piece.setHasMoved(true);
             switchTurn();
         }else{
@@ -118,6 +120,40 @@ public class Board {
 
         return piece.isWhite() != selectedPiece.isWhite();
     }
+
+    public boolean isValidCapture(int row, int col, Piece piece) {
+        if (row < 0 || row >= 8 || col < 0 || col >= 8) {
+            return false;
+        }
+        Piece targetPiece = board[row][col];
+        return targetPiece != null && targetPiece.isWhite() != piece.isWhite();
+    }
+
+//    private boolean isValidPawnMove(Piece pawn, int targetRow, int targetCol) {
+//        int direction = pawn.isWhite() ? -1 : 1;
+//        int currentRow = pawn.getRow();
+//        int currentCol = pawn.getCol();
+//
+//        // Move forward one square
+//        if (targetRow == currentRow + direction && targetCol == currentCol && isEmpty(targetRow, targetCol)) {
+//            return true;
+//        }
+//
+//        // Move forward two squares from starting position
+//        if (!pawn.hasMoved() && targetRow == currentRow + 2 * direction && targetCol == currentCol &&
+//                isEmpty(currentRow + direction, currentCol) && isEmpty(targetRow, targetCol)) {
+//            return true;
+//        }
+//
+//        // Capture diagonally
+//        if (targetRow == currentRow + direction && (targetCol == currentCol - 1 || targetCol == currentCol + 1) &&
+//                isValidCapture(targetRow, targetCol, pawn)) {
+//            pawn.addMoves(new Move(targetRow, targetCol));
+//            return true;
+//        }
+//
+//        return false;
+//    }
     /**
      * Determines if a piece can be moved to a specific target location.
      * Checks if the target location is empty or occupied by a piece of
@@ -132,6 +168,7 @@ public class Board {
     public boolean isValidMove(Piece piece, int targetRow, int targetCol) {
         Piece pieceAtRowCol = board[targetRow][targetCol];
 
+
         // Check if it's the correct player's turn
         if ((isWhiteTurn() && !piece.isWhite()) || (!isWhiteTurn() && piece.isWhite())) {
             System.out.println("Not your turn");
@@ -142,7 +179,7 @@ public class Board {
         if (piece.canMove(targetRow, targetCol)) {
             if (piece instanceof Knight) {
                 // Knights can jump over other pieces, so path clearance isn't necessary
-                if (isEmpty(targetRow, targetCol) || isCapturable(pieceAtRowCol)) {
+                if (isEmpty(targetRow, targetCol) || isValidCapture(targetRow, targetCol, piece)) {
                     if (pieceAtRowCol != null) {
                         System.out.println(pieceAtRowCol.getName() + " captured");
                         capture(pieceAtRowCol);

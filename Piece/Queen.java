@@ -1,5 +1,6 @@
 package Piece;
 
+import Main.Board;
 import Main.Move;
 
 import java.io.FileNotFoundException;
@@ -7,19 +8,22 @@ import java.util.ArrayList;
 
 public class Queen extends Piece {
     private final String name = "Queen";
+    private Board board;
+
     private ArrayList <Move> moves = new ArrayList<>();
-    public Queen(int row, int col, Boolean isWhite) throws FileNotFoundException {
-        super(row, col, isWhite);
+    public Queen(int row, int col, Boolean isWhite, Board board) throws FileNotFoundException {
+        super(row, col, isWhite,board);
+        this.board = board;
         calculateMoves();
-        for (Move move : moves) {
-            System.out.println("Queen moves:");
-            System.out.println("move : " + move.getRow() + " " + move.getCol());
-        }
+//
         if (!isWhite) {
             this.image = getURL("/Users/tony/Documents/McGill/W2025/Chess/res/pieces-basic-png/black-queen.png");
         }else{
             this.image = getURL("/Users/tony/Documents/McGill/W2025/Chess/res/pieces-basic-png/white-queen.png");
         }
+    }
+    public ArrayList<Move> getMoves() {
+        return moves;
     }
     @ Override
     public boolean canMove(int TargetRow, int TargetCol) {
@@ -35,19 +39,23 @@ public class Queen extends Piece {
         return name;
     }
     public void calculateMoves() {
-        int currentRow = this.getRow();
-        int currentCol = this.getCol();
-        for (int i =-1 ;i<=1 ; i++) {
-            for (int j =-1 ;j<=1 ; j++) {
-                if (i == 0 && j == 0) continue; // skip the current position
-                int newRow = currentRow + i;
-                int newCol = currentCol + j;
-                while (newRow >= 0 && newRow <= 7 && newCol >= 0 && newCol <= 7) {
-                    Move move = new Move(newRow, newCol);
-                    moves.add(move);
-                    newRow += i;
-                    newCol += j;
+        moves = new ArrayList<>();
+        int[][] directions = {{1, 0}, {-1, 0}, {0, 1}, {0, -1}, {1, 1}, {-1, -1}, {1, -1}, {-1, 1}};
+        for (int[] direction : directions) {
+            int newRow = this.getRow() + direction[0];
+            int newCol = this.getCol() + direction[1];
+
+            while (newRow >= 0 && newRow < 8 && newCol >= 0 && newCol < 8) {
+                if (board.isEmpty(newRow, newCol)) {
+                    moves.add(new Move(newRow, newCol));
+                } else {
+                    if (board.getPiece(newRow, newCol).getColor() != this.getColor()) {
+                        moves.add(new Move(newRow, newCol));
+                    }
+                    break;
                 }
+                newRow += direction[0];
+                newCol += direction[1];
             }
         }
 

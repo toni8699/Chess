@@ -49,13 +49,15 @@ public class GamePanel extends GridPane implements Runnable {
         this.add(Boardcanvas, 0, 0);
         this.add(Capturedcanvas, 1, 0);
 
-        capturedPiece.add(new King(0, 0, true));
+//        capturedPiece.add(new King(0, 0, true,GameBoard));
 
         drawCapturedPieces();
 
-        mouse = new Mouse(GameBoard);
+        mouse = new Mouse(GameBoard,this);
         Boardcanvas.setOnMousePressed(e -> {
             mouse.mousePressed(e);
+            drawHighlightedMoves(GameBoard.getSelectedPiece());
+
         });
         Boardcanvas.setOnMouseDragged(e -> {
             mouse.mouseDragged(e);
@@ -65,10 +67,7 @@ public class GamePanel extends GridPane implements Runnable {
             mouse.mouseReleased(e);
             GameBoard.printBoard();
         });
-//        Boardcanvas.setOnMouseClicked(e -> {
-//            mouse.mouseClicked(e);
-//            drawPossibleMoves(GameBoard.getSelectedPiece());
-//        });
+
 
         System.out.println( GameBoard.isEmpty(0, 0));
         System.out.println(GameBoard.getPieces()[0][1].getName() + " " + GameBoard.getPieces()[0][1].getColor());
@@ -83,22 +82,20 @@ public class GamePanel extends GridPane implements Runnable {
         gameThread.start();
     }
 
-    private void drawPossibleMoves(Piece selectedPiece) {
-if (selectedPiece != null) {
-    for (int i = 0; i < 8; i++) {
-        for (int j = 0; j < 8; j++) {
-            if (selectedPiece.canMove(i, j)) {
-                gc.setFill(Color.YELLOW);
-                gc.fillRect(i * tilesize, j * tilesize, tilesize, tilesize);
+    public void drawHighlightedMoves(Piece selectedPiece) {
+        if (selectedPiece != null) {
+//            System.out.println("Drawing highlighted moves for " + selectedPiece.getName());
+            for (Move move : selectedPiece.getMoves()) {
+//                System.out.println("drawing move" + move.getRow() + " " + move.getCol());
+                gc.setFill(Color.color(1, 1, 0, 0.5)); // RGBA values0.0 = fully transparent, 1.0 = fully opaque
+
+                gc.fillRect(move.getCol() * tilesize, move.getRow() * tilesize, tilesize, tilesize);
             }
         }
-    }
-}
     }
 
 
     private void drawBoard() {
-
         for (int i = 0; i < 8; i++) {
             for (int j = 0; j < 8; j++) {
                 if ((i + j) % 2 == 0) {
@@ -160,10 +157,10 @@ if (selectedPiece != null) {
 
     }
     public void update () {
-      //  System.out.println("update called");
         drawBoard();
         drawPieces();
         drawCapturedPieces();
+        drawHighlightedMoves(GameBoard.getSelectedPiece());
 
     }
 
