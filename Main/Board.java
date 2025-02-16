@@ -146,6 +146,7 @@ public class Board {
     public void movePiece(int col, int row, Piece piece){
 
         if (isValidMove(piece, row, col)) {
+            switchTurn();
             if (piece instanceof King) {
                 if (col == piece.getCol() + 2) {
                     Castle((King) piece, true);
@@ -162,10 +163,8 @@ public class Board {
             piece.setY(row * 100);
             //recalculate moves
             piece.calculateMoves();
-
             System.out.println("moves: " + piece.getMoves());
             piece.setHasMoved(true);
-            switchTurn();
         }else{
             System.out.println(piece.getName() + " cannot move from " + piece.getRow() + "," + piece.getCol() + " to " + row + "," + col);
         }
@@ -219,30 +218,15 @@ public class Board {
             System.out.println("Not your turn");
             return false;
         }
-
         // Check if the piece can legally move to the target location
         if (piece.canMove(targetRow, targetCol)) {
-            if (piece instanceof Knight) {
-                // Knights can jump over other pieces, so path clearance isn't necessary
-                if (isEmpty(targetRow, targetCol) || isValidCapture(targetRow, targetCol, piece)) {
-                    if (pieceAtRowCol != null) {
-                        System.out.println(pieceAtRowCol.getName() + " captured");
+            if (isEmpty(targetRow, targetCol) || isValidCapture(targetRow, targetCol, piece)) {
+                if (pieceAtRowCol != null) {
+                    System.out.println(pieceAtRowCol.getName() + " captured");
                         capture(pieceAtRowCol);
                     }
                     return true;
                 }
-            } else {
-                // For other pieces, ensure the path to the target location is clear
-                if (isPathClear(piece.getRow(), piece.getCol(), targetRow, targetCol)) {
-                    if (isEmpty(targetRow, targetCol) || isCapturable(pieceAtRowCol)) {
-                        if (pieceAtRowCol != null) {
-                            System.out.println(pieceAtRowCol.getName() + " captured");
-                            capture(pieceAtRowCol);
-                        }
-                        return true;
-                    }
-                }
-            }
         }
 
         return false;

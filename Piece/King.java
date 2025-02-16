@@ -66,9 +66,9 @@ public class King extends Piece {
     }
     public Rook getRookForCastle(Boolean isKingSide){
         if (isKingSide){
-            return (Rook) board.getPiece(this.getRow(), this.getCol() + 3);
+            return (Rook) board.getPiece(this.getRow(), 7);
         }else{
-            return (Rook) board.getPiece(this.getRow(), this.getCol() - 4);
+            return (Rook) board.getPiece(this.getRow(), 0);
         }
     }
 
