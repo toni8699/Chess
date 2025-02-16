@@ -5,6 +5,7 @@ import Main.Move;
 
 import java.io.FileNotFoundException;
 import java.util.ArrayList;
+import java.util.Objects;
 
 public class Knight extends Piece {
     private final String name = "Knight";
@@ -13,6 +14,8 @@ public class Knight extends Piece {
     private ArrayList <Move> moves = new ArrayList<>();
     public Knight(int row, int col, Boolean isWhite, Board board) throws FileNotFoundException {
         super(row, col, isWhite,board);
+        this.board = board;
+
         calculateMoves();
         System.out.println( name+ "moves : " + moves);
 
@@ -49,7 +52,13 @@ public class Knight extends Piece {
             int newRow = currentRow + direction[0];
             int newCol = currentCol + direction[1];
             if (newRow >= 0 && newRow < 8 && newCol >= 0 && newCol < 8) {
-                moves.add(new Move(newRow, newCol));
+                if (board.isEmpty(newRow, newCol)) {
+                    moves.add(new Move(newRow, newCol));
+                } else {
+                    if (!Objects.equals(board.getPiece(newRow, newCol).getColor(), this.getColor())) {
+                        moves.add(new Move(newRow, newCol));
+                    }
+                }
             }
 
     }

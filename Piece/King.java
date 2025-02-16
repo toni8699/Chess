@@ -11,11 +11,13 @@ public class King extends Piece {
     private ArrayList <Move> moves = new ArrayList<>();
     private final String name = "King";
     private Board board;
+
+
+
     public King(int row, int col, Boolean isWhite, Board board) throws FileNotFoundException {
         super(row, col, isWhite,board);
         this.board = board;
         calculateMoves();
-
         if (!isWhite) {
             this.image = getURL("/Users/tony/Documents/McGill/W2025/Chess/res/pieces-basic-png/black-king.png");
         }else{
@@ -41,12 +43,51 @@ public class King extends Piece {
     public ArrayList<Move> getMoves() {
         return moves;
     }
+    public boolean canCastle( Boolean isKingSide){
+        System.out.println("can castle?");
+        if (hasMoved()){
+            System.out.println("already moved");
+            return false;
+        }
+        if (isKingSide){
+
+            return board.getPiece(this.getRow(), this.getCol() + 1) == null && board.getPiece(this.getRow(), this.getCol() + 2) == null && !getRookForCastle(true).hasMoved();
+        }else{
+            return !getRookForCastle(false).hasMoved() && board.getPiece(this.getRow(), this.getCol() - 1) == null && board.getPiece(this.getRow(), this.getCol() - 2) == null && board.getPiece(this.getRow(), this.getCol() - 3) == null;
+        }
+    }
+    public void addCastleMove( Boolean isKingSide){
+        if (isKingSide){
+            moves.add(new Move(this.getRow(), this.getCol() + 2));
+        }else{
+            moves.add(new Move(this.getRow(), this.getCol() - 2));
+        }
+
+    }
+    public Rook getRookForCastle(Boolean isKingSide){
+        if (isKingSide){
+            return (Rook) board.getPiece(this.getRow(), this.getCol() + 3);
+        }else{
+            return (Rook) board.getPiece(this.getRow(), this.getCol() - 4);
+        }
+    }
+
+
 
 
 
     @Override
     public void calculateMoves() {
         moves = new ArrayList<>();
+        if (canCastle(true)){
+            System.out.println("can castle king");
+            addCastleMove(true);
+        }
+        if (canCastle(false)){
+            System.out.println("can castle queen");
+            addCastleMove(false);
+        }
+
         int[][] directions = {{1, 0}, {-1, 0}, {0, 1}, {0, -1}, {1, 1}, {-1, -1}, {1, -1}, {-1, 1}};
         for (int[] direction : directions) {
             int newRow = this.getRow() + direction[0];

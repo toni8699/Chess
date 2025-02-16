@@ -69,8 +69,6 @@ public class GamePanel extends GridPane implements Runnable {
         });
 
 
-        System.out.println( GameBoard.isEmpty(0, 0));
-        System.out.println(GameBoard.getPieces()[0][1].getName() + " " + GameBoard.getPieces()[0][1].getColor());
 
 
     }
@@ -140,13 +138,14 @@ public class GamePanel extends GridPane implements Runnable {
             } if (blackCapturedX >= maxWidth) {
                 blackCapturedX = 0;
                 blackCapturedY +=100;
+
             }
 
         }}
 
     private void drawPieces(){
+//        System.out.println("being called");
         Piece [][] board = GameBoard.getPieces();
-//        System.out.println(Arrays.deepToString(board));
         for (int i = 0; i < 8; i++) {
             for (int j = 0; j < 8; j++) {
                 if (board[i][j] != null) {

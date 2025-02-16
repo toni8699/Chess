@@ -12,10 +12,62 @@ public class Board {
     private ArrayList<Piece> capturedPieces = new ArrayList<>();
     private Piece selectedPiece;
     private boolean whiteTurn = true;
+    private King whiteKing;
+    private King blackKing;
 
     public Board() throws FileNotFoundException {
         board = new Piece[col][row];
         setBoard();
+        this.whiteKing = (King) board[7][4];
+        this.blackKing = (King) board[0][4];
+        printBoard();
+
+
+    }
+    public Rook getKingRook(King king){
+        if (king.getRow() == 0){
+            return (Rook) board[0][7];
+        }else{
+            return (Rook) board[7][7];
+        }
+    }
+
+    public Rook getQueenRook(King king){
+        if (king.getRow() == 0){
+            return (Rook) board[0][0];
+        }else{
+            return (Rook) board[7][0];
+        }
+    }
+
+    private void Castle(King king,Boolean isKingSide) {
+        if (isKingSide){
+            Rook rook = getKingRook(king);
+            rook.setHasMoved(true);
+            king.setHasMoved(true);
+            board[king.getRow()][king.getCol() + 1] = rook;
+            board[king.getRow()][king.getCol()+2]=king;
+            board[king.getRow()][king.getCol()] = null;
+            board[rook.getRow()][rook.getCol()] = null;
+            rook.setCol(king.getCol() + 1);
+            king.setCol(king.getCol() + 2);
+            king.setX(king.getCol() * 100);
+            rook.setX(rook.getCol() * 100);
+
+        }else{
+            Rook rook = getQueenRook(king);
+            rook.setHasMoved(true);
+            king.setHasMoved(true);
+            board[king.getRow()][king.getCol() - 1] = rook;
+            board[king.getRow()][king.getCol()-2]=king;
+            board[king.getRow()][king.getCol()] = null;
+            board[rook.getRow()][rook.getCol()] = null;
+            rook.setCol(king.getCol() - 1);
+            king.setCol(king.getCol() - 2);
+            king.setX(king.getCol() * 100);
+            rook.setX(rook.getCol() * 100);
+        }
+
 
     }
 
@@ -38,7 +90,7 @@ public class Board {
     board[7][2] = new Bishop(7, 2, true,this); // white bishop
     board[7][5] = new Bishop(7, 5, true,this); // white bishop
 
-    // Initialize knights
+//     Initialize knights
     board[0][1] = new Knight(0, 1, false,this); // black knight
     board[0][6] = new Knight(0, 6, false,this); // black knight
     board[7][1] = new Knight(7, 1, true,this); // white knight
@@ -46,9 +98,9 @@ public class Board {
 
 
         // Initialize queens and kings
-    board[0][3] = new Queen(0, 3, false,this); // black queen
+//    board[0][3] = new Queen(0, 3, false,this); // black queen
     board[0][4] = new King(0, 4, false,this); // black king
-    board[7][3] = new Queen(7, 3, true,this); // white queen
+//    board[7][3] = new Queen(7, 3, true,this); // white queen
     board[7][4] = new King(7, 4, true,this); // white king
 }
 
@@ -92,7 +144,15 @@ public class Board {
      * @param piece the Piece object to be moved
      */
     public void movePiece(int col, int row, Piece piece){
+
         if (isValidMove(piece, row, col)) {
+            if (piece instanceof King) {
+                if (col == piece.getCol() + 2) {
+                    Castle((King) piece, true);
+                } else if (col == piece.getCol() - 2) {
+                    Castle((King) piece, false);
+                }
+            }
             System.out.println(piece.getName() + " moved from " + piece.getRow() + "," + piece.getCol() + " to " + row + "," + col);
             board[piece.getRow()][piece.getCol()] = null;
             board[row][col] = piece;
@@ -129,31 +189,16 @@ public class Board {
         return targetPiece != null && targetPiece.isWhite() != piece.isWhite();
     }
 
-//    private boolean isValidPawnMove(Piece pawn, int targetRow, int targetCol) {
-//        int direction = pawn.isWhite() ? -1 : 1;
-//        int currentRow = pawn.getRow();
-//        int currentCol = pawn.getCol();
-//
-//        // Move forward one square
-//        if (targetRow == currentRow + direction && targetCol == currentCol && isEmpty(targetRow, targetCol)) {
-//            return true;
-//        }
-//
-//        // Move forward two squares from starting position
-//        if (!pawn.hasMoved() && targetRow == currentRow + 2 * direction && targetCol == currentCol &&
-//                isEmpty(currentRow + direction, currentCol) && isEmpty(targetRow, targetCol)) {
-//            return true;
-//        }
-//
-//        // Capture diagonally
-//        if (targetRow == currentRow + direction && (targetCol == currentCol - 1 || targetCol == currentCol + 1) &&
-//                isValidCapture(targetRow, targetCol, pawn)) {
-//            pawn.addMoves(new Move(targetRow, targetCol));
-//            return true;
-//        }
-//
-//        return false;
-//    }
+    public void removePiece ( Piece piece){
+        board [piece.getRow()][piece.getCol()] = null;
+        for (int i = 0; i < activePieces.size(); i++) {
+            if (activePieces.get(i) == piece) {
+                activePieces.remove(i);
+                break;
+            }
+        }
+
+    }
     /**
      * Determines if a piece can be moved to a specific target location.
      * Checks if the target location is empty or occupied by a piece of
