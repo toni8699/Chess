@@ -5,6 +5,7 @@ import Main.Move;
 
 import java.io.FileNotFoundException;
 import java.util.ArrayList;
+import java.util.Objects;
 
 public class King extends Piece {
     private ArrayList<Piece> capturedPiece = new ArrayList<>();
@@ -43,19 +44,52 @@ public class King extends Piece {
     public ArrayList<Move> getMoves() {
         return moves;
     }
-    public boolean canCastle( Boolean isKingSide){
-        System.out.println("can castle?");
-        if (hasMoved()){
-            System.out.println("already moved");
+    public boolean canCastle( Boolean isKingSide) {
+        if ( isIncheck()||hasMoved() || getRookForCastle(isKingSide) == null) {
+            System.out.println("can't castle Rook does not exist or king is in check");
             return false;
         }
-        if (isKingSide){
+        if (isPathUnderAttack(isKingSide)) {
+            System.out.println("Path under attack");
+            return false;
+        }
+        if (!isPathClear(isKingSide)) {
+            System.out.println("Path not clear");
+            return false;
+        }
+        System.out.println("can castle" + isKingSide);
+        return true;
+    }
 
-            return board.getPiece(this.getRow(), this.getCol() + 1) == null && board.getPiece(this.getRow(), this.getCol() + 2) == null && !getRookForCastle(true).hasMoved();
+    public boolean isPathClear(boolean isKingSide) {
+        if (isKingSide) {
+            return (board.getPiece(this.getRow(), 6) == null && board.getPiece(this.getRow(),5) == null );
         }else{
-            return !getRookForCastle(false).hasMoved() && board.getPiece(this.getRow(), this.getCol() - 1) == null && board.getPiece(this.getRow(), this.getCol() - 2) == null && board.getPiece(this.getRow(), this.getCol() - 3) == null;
+            return (board.getPiece(this.getRow(), 3) == null && board.getPiece(this.getRow(),2) == null && board.getPiece(this.getRow(),1) == null);
         }
     }
+
+    public boolean isPathUnderAttack(boolean isKingSide) {
+        System.out.println("king Checking " +this.getColor());
+        if (isKingSide) {
+            for (Piece p : board.getActivePieces()) {
+                if (!Objects.equals(p.getColor(), this.getColor()) &&( p.canMove(this.getRow(), 6) || p.canMove(this.getRow(), 5))) {
+                    System.out.println(this.getColor() +" king Path under attack by " + p.getName());
+                    return true;
+                }
+            }
+        }else{
+            for (Piece p : board.getActivePieces()) {
+                if (!Objects.equals(p.getColor(), this.getColor()) &&( p.canMove(this.getRow(), 3) || p.canMove(this.getRow(), 2))) {
+                    System.out.println("Path under attack by " + p.getName());
+                    return true;
+                }
+            }
+        }
+        return false;
+    }
+
+
     public void addCastleMove( Boolean isKingSide){
         if (isKingSide){
             moves.add(new Move(this.getRow(), this.getCol() + 2));
@@ -71,6 +105,14 @@ public class King extends Piece {
             return (Rook) board.getPiece(this.getRow(), 0);
         }
     }
+    public boolean isIncheck(){
+        for (Piece p : board.getActivePieces()){
+            if (!Objects.equals(p.getColor(), this.getColor()) && p.canMove(this.getRow(), this.getCol())){
+                return true;
+            }
+        }
+        return false;
+    }
 
 
 
@@ -79,12 +121,10 @@ public class King extends Piece {
     @Override
     public void calculateMoves() {
         moves = new ArrayList<>();
-        if (canCastle(true)){
-            System.out.println("can castle king");
+        if (canCastle(true)) {
             addCastleMove(true);
         }
-        if (canCastle(false)){
-            System.out.println("can castle queen");
+        if (canCastle(false)) {
             addCastleMove(false);
         }
 

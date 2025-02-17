@@ -73,10 +73,10 @@ public class Board {
 
     private void initBoard() throws FileNotFoundException {
     // Initialize pawns
-    for (int i = 0; i < 8; i++) {
-        board[1][i] = new Pawn(1, i, false,this); // black pawns
-        board[6][i] = new Pawn(6, i, true,this); // white pawns
-    }
+//    for (int i = 0; i < 8; i++) {
+//        board[1][i] = new Pawn(1, i, false,this); // black pawns
+//        board[6][i] = new Pawn(6, i, true,this); // white pawns
+//    }
 
     // Initialize rooks
     board[0][0] = new Rook(0, 0, false, this); // black rook
@@ -85,10 +85,10 @@ public class Board {
     board[7][7] = new Rook(7, 7, true,this); // white rook
 
     // Initialize bishops
-    board[0][2] = new Bishop(0, 2, false,this); // black bishop
-    board[0][5] = new Bishop(0, 5, false,this); // black bishop
-    board[7][2] = new Bishop(7, 2, true,this); // white bishop
-    board[7][5] = new Bishop(7, 5, true,this); // white bishop
+//    board[0][2] = new Bishop(0, 2, false,this); // black bishop
+//    board[0][5] = new Bishop(0, 5, false,this); // black bishop
+//    board[7][2] = new Bishop(7, 2, true,this); // white bishop
+//    board[7][5] = new Bishop(7, 5, true,this); // white bishop
 
 //     Initialize knights
     board[0][1] = new Knight(0, 1, false,this); // black knight
@@ -163,6 +163,8 @@ public class Board {
             piece.setY(row * 100);
             //recalculate moves
             piece.calculateMoves();
+            whiteKing.calculateMoves();
+            blackKing.calculateMoves();
             System.out.println("moves: " + piece.getMoves());
             piece.setHasMoved(true);
         }else{
