@@ -64,7 +64,11 @@ public class GamePanel extends GridPane implements Runnable {
         });
 
         Boardcanvas.setOnMouseReleased(e -> {
-            mouse.mouseReleased(e);
+            try {
+                mouse.mouseReleased(e);
+            } catch (FileNotFoundException ex) {
+                throw new RuntimeException(ex);
+            }
             GameBoard.printBoard();
         });
 

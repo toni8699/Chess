@@ -7,13 +7,9 @@ import java.io.FileNotFoundException;
 import java.util.ArrayList;
 
 public class Rook extends Piece {
-    private final String name = "Rook";
-    private Board board;
-
     private ArrayList <Move> moves = new ArrayList<>();
     public Rook(int row, int col, Boolean isWhite, Board board) throws FileNotFoundException, FileNotFoundException {
             super(row, col, isWhite,board);
-            this.board = board;
             calculateMoves();
         if (!isWhite) {
             this.image = getURL("/Users/tony/Documents/McGill/W2025/Chess/res/pieces-basic-png/black-rook.png");
@@ -22,9 +18,13 @@ public class Rook extends Piece {
         }
         System.out.println();
     }
+    public Rook(Rook r,Board board){
+        super (r,board);
+    }
+
     @Override
     public String getName() {
-        return name;
+        return "Rook";
     }
     @Override
     public boolean canMove(int TargetRow, int TargetCol) {
@@ -38,6 +38,12 @@ public class Rook extends Piece {
     public ArrayList<Move> getMoves() {
         return moves;
     }
+
+    @Override
+    public Rook DeepCopy(Board newBoard) {
+        return new Rook(this, newBoard);
+    }
+
     @Override
     public void calculateMoves() {
         moves = new ArrayList<>();

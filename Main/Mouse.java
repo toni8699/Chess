@@ -1,6 +1,7 @@
 package Main;
 
 import java.awt.event.MouseAdapter;
+import java.io.FileNotFoundException;
 import java.util.Arrays;
 
 import Piece.*;
@@ -49,20 +50,26 @@ public void resetPiecePosition(Piece piece, int originalCol, int originalRow) {
     piece.setY(originalRow * 100);
 }
 
-public void mouseReleased(MouseEvent e) {
+public void mouseReleased(MouseEvent e) throws FileNotFoundException {
     System.out.println("mouse released");
     Piece p = board.getSelectedPiece();
+    Piece p2 = board.getLastMovedPiece();
+    if (p2 != null) {
+        System.out.println("Last moved piece:" +p2.getColor()+" " + p2.getName());
+    }else{
+        System.out.println("No last moved piece");
+    }
+
     if (p != null) {
         int originalCol = p.getCol();
         int originalRow = p.getRow();
         int col = (int) (e.getX() / 100);
         int row = (int) (e.getY() / 100);
-        if (board.isValidMove(p, row, col)) {
-            board.movePiece(col, row, p);
-        } else {
-            // Reset the piece to its original position
+        if (!board.movePiece(col, row, p)) {
             resetPiecePosition(p, originalCol, originalRow);
         }
+        board.setLastMovedPiece(p);
+
         board.setSelectedPiece(null);
     }
 }

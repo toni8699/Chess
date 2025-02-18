@@ -8,12 +8,10 @@ import java.util.ArrayList;
 
 public class Queen extends Piece {
     private final String name = "Queen";
-    private Board board;
 
     private ArrayList <Move> moves = new ArrayList<>();
     public Queen(int row, int col, Boolean isWhite, Board board) throws FileNotFoundException {
         super(row, col, isWhite,board);
-        this.board = board;
         calculateMoves();
 //
         if (!isWhite) {
@@ -22,9 +20,18 @@ public class Queen extends Piece {
             this.image = getURL("/Users/tony/Documents/McGill/W2025/Chess/res/pieces-basic-png/white-queen.png");
         }
     }
+    public Queen(Queen originalQueen, Board board){
+       super (originalQueen, board);
+    }
     public ArrayList<Move> getMoves() {
         return moves;
     }
+
+    @Override
+    public Queen DeepCopy(Board newBoard) {
+        return new Queen (this,newBoard);
+    }
+
     @ Override
     public boolean canMove(int TargetRow, int TargetCol) {
         for (Move move : moves) {

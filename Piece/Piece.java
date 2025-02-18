@@ -11,13 +11,13 @@ import java.util.ArrayList;
 
 public abstract class Piece {
     public Image image;
-    private int x,y;
-    private int col, row;
-    private final Boolean isWhite;
-    private String name;
-    private boolean hasMoved = false;
-    private ArrayList <Move> moves = new ArrayList<>();
-    private Board board;
+    protected int x,y;
+    protected int col, row;
+    protected final Boolean isWhite;
+    protected String name;
+    protected boolean hasMoved = false;
+    protected ArrayList <Move> moves = new ArrayList<>();
+    protected Board board;
 
 
     public Piece(int row, int col, Boolean isWhite, Board board) throws FileNotFoundException {
@@ -26,6 +26,15 @@ public abstract class Piece {
         this.isWhite = isWhite;
         x = col * 100;
         y = row * 100;
+        this.board = board;
+    }
+    public Piece (Piece p, Board board){
+        this.row = p.getRow();
+        this.col = p.getCol();
+        this.isWhite = p.isWhite();
+        this.board = board;
+        this.x = p.getX();
+        this.y = p.getY();
     }
 
     public Image getURL( String path) throws FileNotFoundException {
@@ -77,12 +86,8 @@ public abstract class Piece {
     public void setY(int y) {
         this.y = y;
     }
-    public boolean canMove(int row, int col){
-        return true;
-    }
-    public void calculateMoves(){
-        return ;
-    }
+    public abstract boolean canMove(int row, int col);
+    public abstract void calculateMoves();
 
     public ArrayList<Move> getMoves() {
         for (Move move : moves) {
@@ -91,22 +96,12 @@ public abstract class Piece {
         return moves;
     }
 
-    public void addMoves(Move move) {
-        moves.add( move);
-    }
     public boolean hasMoved() {
         return hasMoved;
     }
     public void setHasMoved(boolean hasMoved) {
         this.hasMoved = hasMoved;
     }
-    public void removeMove(Move move) {
-        for (Move m : moves) {
-            if (m.getRow() == move.getRow() && m.getCol() == move.getCol()) {
-                moves.remove(m);
-            }
-        }
-    }
-
+    public abstract Piece DeepCopy( Board newBoard);
 }
 

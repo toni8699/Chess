@@ -9,13 +9,11 @@ import java.util.ArrayList;
 public class Pawn extends Piece {
     private String name = "Pawn";
     private Boolean isWhite;
-    private Board board;
     private ArrayList<Move> moves = new ArrayList<>();
 
     public Pawn(int row, int col, Boolean isWhite , Board board) throws FileNotFoundException {
         super(row, col, isWhite,board);
         this.isWhite = isWhite;
-        this.board = board;
         calculateMoves();
         System.out.println("moves: " + moves);
         if (!isWhite) {
@@ -23,10 +21,17 @@ public class Pawn extends Piece {
         } else {
             this.image = getURL("/Users/tony/Documents/McGill/W2025/Chess/res/pieces-basic-png/white-pawn.png");
         }
-        System.out.println();
+    }
+    public Pawn (Pawn originalPawn, Board board){
+        super(originalPawn,board);
     }
     public ArrayList<Move> getMoves() {
         return moves;
+    }
+
+    @Override
+    public Pawn DeepCopy(Board newBoard) {
+        return new Pawn(this,newBoard);
     }
 
     @Override

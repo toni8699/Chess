@@ -11,20 +11,24 @@ public class King extends Piece {
     private ArrayList<Piece> capturedPiece = new ArrayList<>();
     private ArrayList <Move> moves = new ArrayList<>();
     private final String name = "King";
-    private Board board;
+//    public Board board;
 
 
 
     public King(int row, int col, Boolean isWhite, Board board) throws FileNotFoundException {
         super(row, col, isWhite,board);
-        this.board = board;
+//        this.board = board;
         calculateMoves();
         if (!isWhite) {
             this.image = getURL("/Users/tony/Documents/McGill/W2025/Chess/res/pieces-basic-png/black-king.png");
         }else{
             this.image = getURL("/Users/tony/Documents/McGill/W2025/Chess/res/pieces-basic-png/white-king.png");
         }
-
+    }
+    //Copy constructor
+    public King (King originalKing, Board board){
+        super(originalKing,board);
+//        this.board = board;
     }
     @Override
     public String getName() {
@@ -37,24 +41,30 @@ public class King extends Piece {
                 return true;
             }
         }
-        System.out.println("can't move");
+//        System.out.println("can't move");
         return false;
 
     }
     public ArrayList<Move> getMoves() {
         return moves;
     }
+
+    @Override
+    public King DeepCopy( Board newBoard) {
+        return new King(this,newBoard);
+    }
+
     public boolean canCastle( Boolean isKingSide) {
         if ( isIncheck()||hasMoved() || getRookForCastle(isKingSide) == null) {
-            System.out.println("can't castle Rook does not exist or king is in check");
+//            System.out.println("can't castle Rook does not exist or king is in check");
             return false;
         }
         if (isPathUnderAttack(isKingSide)) {
-            System.out.println("Path under attack");
+//            System.out.println("Path under attack");
             return false;
         }
         if (!isPathClear(isKingSide)) {
-            System.out.println("Path not clear");
+//            System.out.println("Path not clear");
             return false;
         }
         System.out.println("can castle" + isKingSide);
@@ -69,19 +79,24 @@ public class King extends Piece {
         }
     }
 
+    /**
+     * Check if the path from the king to the rook is under attack or not.
+     * @param isKingSide true if the king is castling on the king side, false otherwise
+     * @return true if the path is under attack, false otherwise
+     */
     public boolean isPathUnderAttack(boolean isKingSide) {
-        System.out.println("king Checking " +this.getColor());
+//        System.out.println("king Checking " +this.getColor());
         if (isKingSide) {
             for (Piece p : board.getActivePieces()) {
                 if (!Objects.equals(p.getColor(), this.getColor()) &&( p.canMove(this.getRow(), 6) || p.canMove(this.getRow(), 5))) {
-                    System.out.println(this.getColor() +" king Path under attack by " + p.getName());
+//                    System.out.println(this.getColor() +" king Path under attack by " + p.getName());
                     return true;
                 }
             }
         }else{
             for (Piece p : board.getActivePieces()) {
                 if (!Objects.equals(p.getColor(), this.getColor()) &&( p.canMove(this.getRow(), 3) || p.canMove(this.getRow(), 2))) {
-                    System.out.println("Path under attack by " + p.getName());
+//                    System.out.println("Path under attack by " + p.getName());
                     return true;
                 }
             }
@@ -132,7 +147,6 @@ public class King extends Piece {
         for (int[] direction : directions) {
             int newRow = this.getRow() + direction[0];
             int newCol = this.getCol() + direction[1];
-
             if (newRow >= 0 && newRow < 8 && newCol >= 0 && newCol < 8) {
                 if (board.isEmpty(newRow, newCol)) {
                     moves.add(new Move(newRow, newCol));

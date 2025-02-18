@@ -9,13 +9,11 @@ import java.util.Objects;
 
 public class Knight extends Piece {
     private final String name = "Knight";
-    private Board board;
+
 
     private ArrayList <Move> moves = new ArrayList<>();
     public Knight(int row, int col, Boolean isWhite, Board board) throws FileNotFoundException {
         super(row, col, isWhite,board);
-        this.board = board;
-
         calculateMoves();
         System.out.println( name+ "moves : " + moves);
 
@@ -24,6 +22,9 @@ public class Knight extends Piece {
         }else{
             this.image = getURL("/Users/tony/Documents/McGill/W2025/Chess/res/pieces-basic-png/white-knight.png");
         }
+    }
+    public Knight (Knight originalKnight, Board board){
+        super(originalKnight,board);
     }
     @Override
     public String getName() {
@@ -40,6 +41,11 @@ public class Knight extends Piece {
         return false;}
     public ArrayList<Move> getMoves() {
         return moves;
+    }
+
+    @Override
+    public Knight DeepCopy(Board newBoard) {
+        return new Knight(this,newBoard);
     }
 
     @Override

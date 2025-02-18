@@ -8,12 +8,10 @@ import java.util.ArrayList;
 
 public class Bishop extends Piece{
     private final String name = "Bishop";
-    private Board board;
 
     private ArrayList <Move> moves = new ArrayList<>();
     public Bishop(int row, int col, Boolean isWhite, Board board) throws FileNotFoundException {
         super(row, col, isWhite,board);
-        this.board = board;
         calculateMoves();
         if (!isWhite ) {
             this.image = getURL("/Users/tony/Documents/McGill/W2025/Chess/res/pieces-basic-png/black-bishop.png");
@@ -22,9 +20,18 @@ public class Bishop extends Piece{
         }
         System.out.println();
     }
+    public Bishop (Bishop originalBishop, Board board){
+        super(originalBishop,board);
+    }
     public ArrayList<Move> getMoves() {
         return moves;
     }
+
+    @Override
+    public Bishop DeepCopy( Board newBoard ) {
+        return new Bishop(this, newBoard);
+    }
+
     @Override
     public String getName() {
         return name;
