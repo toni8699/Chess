@@ -2,6 +2,7 @@ package Piece;
 
 import Main.Board;
 import Main.Move;
+import Main.Position;
 
 import java.io.FileNotFoundException;
 import java.util.ArrayList;
@@ -35,7 +36,9 @@ public class Queen extends Piece {
     @ Override
     public boolean canMove(int TargetRow, int TargetCol) {
         for (Move move : moves) {
+
             if (move.getRow() == TargetRow && move.getCol() == TargetCol) {
+                System.out.println("can move to " + move.getRow() + " " + move.getCol());
                 return true;
             }
         }
@@ -58,6 +61,9 @@ public class Queen extends Piece {
                 } else {
                     if (board.getPiece(newRow, newCol).getColor() != this.getColor()) {
                         moves.add(new Move(newRow, newCol));
+
+                    }else{
+                        board.getProtectedSquares(isWhite).add(new Position(newRow, newCol));
                     }
                     break;
                 }

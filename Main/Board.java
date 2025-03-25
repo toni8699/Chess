@@ -4,6 +4,11 @@ import Piece.*;
 import java.io.FileNotFoundException;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.HashSet;
+import java.util.Objects;
+import java.util.Set;
+
+import static java.lang.System.exit;
 
 public class Board {
     final int col = 8;
@@ -16,19 +21,16 @@ public class Board {
     private boolean whiteTurn = true;
     private King whiteKing;
     private  King blackKing;
+    private Set<Position> whiteProtected = new HashSet<>();
+    private Set<Position> blackProtected = new HashSet<>();
 
     public Board() throws FileNotFoundException {
         board = new Piece[col][row];
         activePieces = new ArrayList<>();
         capturedPieces = new ArrayList<>();
         setBoard();
-//        board[7][0] = new Rook (7, 0, false, this);
-//        board [7][1] = new Knight(7, 1, true, this);
-//        activePieces.add(board[7][0]);
-//        activePieces.add(board[7][1]);
-//        whiteKing = getKing(true);
-//        blackKing = getKing(false);
-//        System.out.println(whiteKing.isIncheck());
+        whiteKing = getKing(true);
+        blackKing = getKing(false);
         printBoard();
     }
     public Board(Board originalBoard) throws FileNotFoundException {
@@ -47,18 +49,16 @@ public class Board {
         selectedPiece = originalBoard.selectedPiece;
         whiteTurn = originalBoard.whiteTurn;
     }
-//    public Board DeepCopy(){
-//        return new Board(this);
-//    }
+
     public boolean isKingInCheck( Boolean isWhiteTurn){
         if (isWhiteTurn()){
-            System.out.println("White is in check");
+//            System.out.println("White is in check");
             System.out.println(this.whiteKing.isIncheck());
 
             return this.whiteKing.isIncheck();
 
         }else{
-            System.out.println("Black is in check");
+//            System.out.println("Black is in check");
             System.out.println(this.blackKing.isIncheck());
 
             return this.blackKing.isIncheck();
@@ -120,36 +120,36 @@ public class Board {
     }
 
     private void initBoard() throws FileNotFoundException {
-    // Initialize pawns
-    for (int i = 0; i < 8; i++) {
-        board[1][i] = new Pawn(1, i, false,this); // black pawns
-        board[6][i] = new Pawn(6, i, true,this); // white pawns
-    }
+//     Initialize pawns
+//    for (int i = 0; i < 8; i++) {
+//        board[1][i] = new Pawn(1, i, false,this); // black pawns
+//        board[6][i] = new Pawn(6, i, true,this); // white pawns
+//    }
 
-//     Initialize rooks
-    board[0][0] = new Rook(0, 0, false, this); // black rook
-    board[0][7] = new Rook(0, 7, false,this); // black rook
-    board[7][0] = new Rook(7, 0, true,this); // white rook
-    board[7][7] = new Rook(7, 7, true,this); // white rook
+////     Initialize rooks
+//    board[0][0] = new Rook(0, 0, false, this); // black rook
+//    board[0][7] = new Rook(0, 7, false,this); // black rook
+//    board[7][0] = new Rook(7, 0, true,this); // white rook
+//    board[7][7] = new Rook(7, 7, true,this); // white rook
 
-    // Initialize bishops
-    board[0][2] = new Bishop(0, 2, false,this); // black bishop
-    board[0][5] = new Bishop(0, 5, false,this); // black bishop
-    board[7][2] = new Bishop(7, 2, true,this); // white bishop
-    board[7][5] = new Bishop(7, 5, true,this); // white bishop
+////     Initialize bishops
+//    board[0][2] = new Bishop(0, 2, false,this); // black bishop
+//    board[0][5] = new Bishop(0, 5, false,this); // black bishop
+//    board[7][2] = new Bishop(7, 2, true,this); // white bishop
+//    board[7][5] = new Bishop(7, 5, true,this); // white bishop
 
-//     Initialize knights
-    board[0][1] = new Knight(0, 1, false,this); // black knight
-    board[0][6] = new Knight(0, 6, false,this); // black knight
-    board[7][1] = new Knight(7, 1, true,this); // white knight
-    board[7][6] = new Knight(7, 6,true,this ); // white knight
+////     Initialize knights
+//    board[0][1] = new Knight(0, 1, false,this); // black knight
+//    board[0][6] = new Knight(0, 6, false,this); // black knight
+//    board[7][1] = new Knight(7, 1, true,this); // white knight
+//    board[7][6] = new Knight(7, 6,true,this ); // white knight
 
 
         // Initialize queens and kings
     board[0][3] = new Queen(0, 3, false,this); // black queen
         King blackKing = new King(0, 4, false,this);
     board[0][4] = blackKing; // black king
-    board[7][3] = new Queen(7, 3, true,this); // white queen
+//    board[7][3] = new Queen(7, 3, true,this); // white queen
         King whiteKing = new King(7, 4, true,this);
     board[7][4] = whiteKing; // white king
 }
@@ -196,6 +196,8 @@ public class Board {
 
         if (isValidMove(piece, row, col) ) {
             switchTurn();
+            piece.setHasMoved(true);
+
             if (piece instanceof King) {
                 if (col == piece.getCol() + 2) {
                     Castle((King) piece, true);
@@ -203,17 +205,23 @@ public class Board {
                     Castle((King) piece, false);
                 }
             }
-            System.out.println(piece.getName() + " moved from " + piece.getRow() + "," + piece.getCol() + " to " + row + "," + col);
             board[piece.getRow()][piece.getCol()] = null;
+            Piece pAtTarget = board[row][col];
+            if (pAtTarget != null) {
+                capture(pAtTarget);
+            }
             board[row][col] = piece;
             piece.setCol(col);
             piece.setRow(row);
             piece.setX(col * 100);
             piece.setY(row * 100);
             //recalculate moves
-            piece.calculateMoves();
-            System.out.println("moves: " + piece.getMoves());
-            piece.setHasMoved(true);
+            updateMoves();
+            if (whiteTurn){
+                StaleMateOrCheckMate(whiteKing);
+            }else{
+                StaleMateOrCheckMate(blackKing);
+            }
             return true;
         }else{
             System.out.println("Invalid move for " + piece.getName() + " from " + piece.getRow() + "," + piece.getCol() + " to " + row + "," + col);
@@ -222,8 +230,42 @@ public class Board {
         return false;
 
     }
+    // Add this method to your Board class
+    public boolean isDraw(boolean isWhiteTurn) throws FileNotFoundException {
+        King king = isWhiteTurn ? whiteKing : blackKing;
 
+        // Check if any piece has a legal move
+        for (Piece piece : activePieces) {
+            if (piece.isWhite() == isWhiteTurn) {
+                piece.calculateMoves();  // Ensure the moves are updated
+                for (Move move : piece.getMoves()) {
+                    // Check if the move leaves the king in check
+                    if (!moveLeavesKingInCheck(piece, move.getRow(), move.getCol())) {
+                        return false;  // Found a legal move
+                    }
+                }
+            }
+        }
 
+        // If no legal moves are found, it's a draw
+        return true;
+    }
+
+    private void StaleMateOrCheckMate(King king) throws FileNotFoundException {
+        king.calculateMoves();
+       if (king.getMoves().isEmpty()) {
+           if (king.isIncheck()){
+               System.out.println("Checkmate");
+               exit(0);
+           }else{
+               if (isDraw( king.isWhite())){
+                   System.out.println("Draw");
+                   exit(0);
+               };
+
+           }
+       }
+    }
     public boolean isEmpty(int row, int col){
         return board[row][col] == null;
     }
@@ -264,43 +306,41 @@ public class Board {
             System.out.println("Not your turn");
             return false;
         }
-//        if (moveLeavesKingInCheck(piece, targetRow, targetCol)) {
-//            return false;
-//        }
-//         Check if the piece can legally move to the target location
-        if (piece.canMove(targetRow, targetCol)) {
-            if (isEmpty(targetRow, targetCol) || isValidCapture(targetRow, targetCol, piece)) {
-                if (pieceAtRowCol != null) {
-                    System.out.println(pieceAtRowCol.getName() + " captured");
-                        capture(pieceAtRowCol);
-                    }
-                    return true;
-                }
+        if (moveLeavesKingInCheck(piece, targetRow, targetCol)){
+            System.out.println(" move leaves King in check");
+            return false;
         }
-        return true;
+        if (piece.canMove(targetRow, targetCol)) {
+            return true;
+        }
+//         Check if the piece can legally move to the target loca
+        System.out.println("not a valid move");
+        return false;
     }
 
     public boolean moveLeavesKingInCheck(Piece p , int targetRow, int targetCol) throws FileNotFoundException {
         Board tempBoard = new Board(this);
         Piece tempPiece = tempBoard.getPiece(p.getRow(), p.getCol());
+        Piece targetPiece = tempBoard.getPiece(targetRow, targetCol);
         King king ;
         if (p.isWhite()){
             king = tempBoard.whiteKing;
         }else{
             king = tempBoard.blackKing;
         }
+        if (targetPiece!=null){
+            tempBoard.removePiece(targetPiece);
+
+        }
         tempBoard.board[targetRow][targetCol] = tempPiece;
         tempBoard.board[p.getRow()][p.getCol()] = null;
         tempPiece.setRow(targetRow);
         tempPiece.setCol(targetCol);
-        System.out.println("priting tmp board");
-        tempBoard.printBoard();
+//        System.out.println("printing tmp board");
+//        tempBoard.printBoard();
         for (Piece piece : tempBoard.activePieces) {
-            System.out.println("recalculating moves for " + piece.getName());
-            if (!piece.isWhite()) {
+            if (!Objects.equals(piece.getColor(), p.getColor()))
                 piece.calculateMoves();
-                System.out.println("moves: " + piece.getMoves());
-            }
         }
         if (king.isIncheck()){
             System.out.println(king.getColor() + " in check can't move");
@@ -311,7 +351,29 @@ public class Board {
         return false;
     }
 
+    public void updateMoves() {
+        whiteProtected.clear();
+        blackProtected.clear();
+        for (Piece p : activePieces) {
+            p.calculateMoves();
+        }
+    }
+    public Set<Position> getProtectedSquares(boolean isWhite) {
+        if (isWhite) {
+            return whiteProtected;
+        } else {
+            return blackProtected;
+        }
+    }
 
+    
+
+
+
+
+    public boolean isProtectedSquare(int row, int col, boolean isWhite) {
+        return  getProtectedSquares(isWhite).contains(new Position(row, col));
+    }
 
     public void capture(Piece piece){
         capturedPieces.add(piece);
@@ -349,5 +411,21 @@ public class Board {
     public ArrayList<Piece> getCapturedPiece() {
         return capturedPieces;
     }
-}
+    // Inside your Board class
+    public void resetBoard() throws FileNotFoundException {
+        // Clear the current board state
+        for (int i = 0; i < col; i++) {
+            for (int j = 0; j < row; j++) {
+                board[i][j] = null;
+            }
+        }
+        activePieces.clear();
+        capturedPieces.clear();
+        selectedPiece = null;
+        lastMovedPiece = null;
+        whiteTurn = true;
 
+        // Reinitialize the board
+        setBoard();
+    }
+}

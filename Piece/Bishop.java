@@ -2,9 +2,11 @@ package Piece;
 
 import Main.Board;
 import Main.Move;
+import Main.Position;
 
 import java.io.FileNotFoundException;
 import java.util.ArrayList;
+import java.util.Objects;
 
 public class Bishop extends Piece{
     private final String name = "Bishop";
@@ -59,10 +61,14 @@ public class Bishop extends Piece{
 
             while (newRow >= 0 && newRow < 8 && newCol >= 0 && newCol < 8) {
                 if (board.isEmpty(newRow, newCol)) {
-                    moves.add(new Move(newRow, newCol));
-                } else {
-                    if (board.getPiece(newRow, newCol).getColor() != this.getColor()) {
                         moves.add(new Move(newRow, newCol));
+                } else {
+                    //Not empty different color -> can capture
+                    if (!Objects.equals(board.getPiece(newRow, newCol).getColor(), this.getColor())) {
+                            moves.add(new Move(newRow, newCol));
+                    }else{
+                        //not empty but same color
+                        board.getProtectedSquares(isWhite).add(new Position(newRow, newCol));
                     }
                     break;
                 }

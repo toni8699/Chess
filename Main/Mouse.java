@@ -32,8 +32,11 @@ public class Mouse extends MouseAdapter {
 
     public void mouseDragged(MouseEvent mouseEvent) {
         Piece p=  board.getSelectedPiece();
-        p.setX((int) mouseEvent.getX() - 50);
-        p.setY((int) mouseEvent.getY() - 50);
+        if (p != null) {
+            p.setX((int) mouseEvent.getX() - 50);
+            p.setY((int) mouseEvent.getY() - 50);
+        }
+
 
     }
 /**
@@ -65,12 +68,11 @@ public void mouseReleased(MouseEvent e) throws FileNotFoundException {
         int originalRow = p.getRow();
         int col = (int) (e.getX() / 100);
         int row = (int) (e.getY() / 100);
-        if (!board.movePiece(col, row, p)) {
-            resetPiecePosition(p, originalCol, originalRow);
-        }
-        board.setLastMovedPiece(p);
-
-        board.setSelectedPiece(null);
+       if (board.movePiece(col, row, p)) {
+           board.setLastMovedPiece(p);
+      }else{
+           resetPiecePosition(p, originalCol, originalRow);
+       }
     }
 }
 }
