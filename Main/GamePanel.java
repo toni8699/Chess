@@ -2,13 +2,19 @@ package Main;
 
 import javafx.scene.canvas.Canvas;
 import javafx.scene.canvas.GraphicsContext;
+import javafx.scene.input.MouseEvent;
 import javafx.scene.layout.GridPane;
-import javafx.scene.control.Button;
+import javafx.scene.layout.Pane;
 import javafx.scene.paint.Color;
 import javafx.scene.text.Font;
+import java.awt.*;
+import java.awt.event.MouseAdapter;
 
+import java.awt.event.MouseMotionListener;
 import java.io.FileNotFoundException;
+import java.lang.reflect.Array;
 import java.util.ArrayList;
+import java.util.Arrays;
 
 import Piece.*;
 
@@ -29,10 +35,8 @@ public class GamePanel extends GridPane implements Runnable {
     private Piece selectedPiece ;
     private ArrayList <Piece> capturedPiece;
     private GridPane capturedGrid;
-    private Button restartButton;
 
     public GamePanel(Board GameBoard) throws FileNotFoundException {
-
         this.GameBoard =GameBoard;
         this.activePieces = GameBoard.getActivePieces();
         this.capturedPiece = GameBoard.getCapturedPiece();
@@ -44,18 +48,6 @@ public class GamePanel extends GridPane implements Runnable {
         capturedGc = Capturedcanvas.getGraphicsContext2D();
         this.add(Boardcanvas, 0, 0);
         this.add(Capturedcanvas, 1, 0);
-        restartButton = new Button("Restart");
-//        restartButton.setLayoutX(100);
-//        restartButton.setLayoutY(100);
-//        this.add(restartButton, 1, 0);
-        this.add(restartButton ,1,0);
-        restartButton.setOnAction(e -> {
-            try {
-                restartGame();
-            } catch (FileNotFoundException ex) {
-                throw new RuntimeException(ex);
-            }
-        });
 
 //        capturedPiece.add(new King(0, 0, true,GameBoard));
 
@@ -79,12 +71,10 @@ public class GamePanel extends GridPane implements Runnable {
             }
             GameBoard.printBoard();
         });
-    }
-    private void restartGame() throws FileNotFoundException {
-        GameBoard.resetBoard();
-        activePieces = GameBoard.getActivePieces();
-        capturedPiece = GameBoard.getCapturedPiece();
-        update();
+
+
+
+
     }
 
 

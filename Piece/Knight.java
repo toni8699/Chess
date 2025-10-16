@@ -2,7 +2,6 @@ package Piece;
 
 import Main.Board;
 import Main.Move;
-import Main.Position;
 
 import java.io.FileNotFoundException;
 import java.util.ArrayList;
@@ -16,6 +15,7 @@ public class Knight extends Piece {
     public Knight(int row, int col, Boolean isWhite, Board board) throws FileNotFoundException {
         super(row, col, isWhite,board);
         calculateMoves();
+        System.out.println( name+ "moves : " + moves);
 
         if (!isWhite) {
             this.image = getURL("/Users/tony/Documents/McGill/W2025/Chess/res/pieces-basic-png/black-knight.png");
@@ -61,13 +61,9 @@ public class Knight extends Piece {
                 if (board.isEmpty(newRow, newCol)) {
                     moves.add(new Move(newRow, newCol));
                 } else {
-                    //Not empty different color -> can capture
                     if (!Objects.equals(board.getPiece(newRow, newCol).getColor(), this.getColor())) {
                         moves.add(new Move(newRow, newCol));
-                    }else{
-                        board.getProtectedSquares(isWhite).add(new Position(newRow, newCol));
                     }
-
                 }
             }
 
