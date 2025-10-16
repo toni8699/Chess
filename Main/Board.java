@@ -121,35 +121,35 @@ public class Board {
 
     private void initBoard() throws FileNotFoundException {
 //     Initialize pawns
-//    for (int i = 0; i < 8; i++) {
-//        board[1][i] = new Pawn(1, i, false,this); // black pawns
-//        board[6][i] = new Pawn(6, i, true,this); // white pawns
-//    }
+    for (int i = 0; i < 8; i++) {
+        board[1][i] = new Pawn(1, i, false,this); // black pawns
+        board[6][i] = new Pawn(6, i, true,this); // white pawns
+    }
 
 ////     Initialize rooks
-//    board[0][0] = new Rook(0, 0, false, this); // black rook
-//    board[0][7] = new Rook(0, 7, false,this); // black rook
-//    board[7][0] = new Rook(7, 0, true,this); // white rook
-//    board[7][7] = new Rook(7, 7, true,this); // white rook
+    board[0][0] = new Rook(0, 0, false, this); // black rook
+    board[0][7] = new Rook(0, 7, false,this); // black rook
+    board[7][0] = new Rook(7, 0, true,this); // white rook
+    board[7][7] = new Rook(7, 7, true,this); // white rook
 
 ////     Initialize bishops
-//    board[0][2] = new Bishop(0, 2, false,this); // black bishop
-//    board[0][5] = new Bishop(0, 5, false,this); // black bishop
-//    board[7][2] = new Bishop(7, 2, true,this); // white bishop
-//    board[7][5] = new Bishop(7, 5, true,this); // white bishop
+    board[0][2] = new Bishop(0, 2, false,this); // black bishop
+    board[0][5] = new Bishop(0, 5, false,this); // black bishop
+    board[7][2] = new Bishop(7, 2, true,this); // white bishop
+    board[7][5] = new Bishop(7, 5, true,this); // white bishop
 
 ////     Initialize knights
-//    board[0][1] = new Knight(0, 1, false,this); // black knight
-//    board[0][6] = new Knight(0, 6, false,this); // black knight
-//    board[7][1] = new Knight(7, 1, true,this); // white knight
-//    board[7][6] = new Knight(7, 6,true,this ); // white knight
+    board[0][1] = new Knight(0, 1, false,this); // black knight
+    board[0][6] = new Knight(0, 6, false,this); // black knight
+    board[7][1] = new Knight(7, 1, true,this); // white knight
+    board[7][6] = new Knight(7, 6,true,this ); // white knight
 
 
-        // Initialize queens and kings
+//         Initialize queens and kings
     board[0][3] = new Queen(0, 3, false,this); // black queen
         King blackKing = new King(0, 4, false,this);
     board[0][4] = blackKing; // black king
-//    board[7][3] = new Queen(7, 3, true,this); // white queen
+    board[7][3] = new Queen(7, 3, true,this); // white queen
         King whiteKing = new King(7, 4, true,this);
     board[7][4] = whiteKing; // white king
 }
