@@ -9,12 +9,10 @@ import java.util.ArrayList;
 
 public class Pawn extends Piece {
     private String name = "Pawn";
-    private Boolean isWhite;
     private ArrayList<Move> moves = new ArrayList<>();
 
     public Pawn(int row, int col, Boolean isWhite , Board board) throws FileNotFoundException {
         super(row, col, isWhite,board);
-        this.isWhite = isWhite;
         calculateMoves();
         System.out.println("moves: " + moves);
         if (!isWhite) {

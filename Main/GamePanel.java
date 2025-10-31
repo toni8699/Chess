@@ -1,76 +1,99 @@
 package Main;
 
+import Piece.King;
+import Piece.Piece;
+import javafx.geometry.Pos;
 import javafx.scene.canvas.Canvas;
 import javafx.scene.canvas.GraphicsContext;
+import javafx.scene.control.Button;
+import javafx.scene.control.Separator;
 import javafx.scene.image.Image;
-import javafx.scene.input.MouseEvent;
+import javafx.scene.layout.BorderPane;
 import javafx.scene.layout.GridPane;
-import javafx.scene.layout.Pane;
+import javafx.scene.layout.Priority;
+import javafx.scene.layout.VBox;
 import javafx.scene.paint.Color;
 import javafx.scene.text.Font;
+
 import java.io.FileNotFoundException;
 import java.util.ArrayList;
 
-import Piece.*;
-import Piece.King;
-
-public class GamePanel extends GridPane implements Runnable {
+public class GamePanel extends BorderPane implements Runnable {
     private final int FPS = 60;
-    Thread gameThread;
-    private int tilesize = 100;
-    private Board GameBoard;
-    private Canvas Boardcanvas;
-    private Canvas Capturedcanvas;
-    private ArrayList <Piece> activePieces = new ArrayList<>();
-    private GraphicsContext gc;
-    private GraphicsContext capturedGc;
-    private Mouse mouse;
-    private Piece selectedPiece ;
-    private ArrayList <Piece> capturedPiece;
-    private GridPane capturedGrid;
+    private Thread gameThread;
+    private final int tileSize = 100;
+    private final Board board;
+    private final Canvas boardCanvas;
+    private final Canvas capturedCanvas;
+    private final GraphicsContext gc;
+    private final GraphicsContext capturedGc;
+    private final Mouse mouse;
+    private final VBox rightColumn;
 
-    public GamePanel(Board GameBoard) throws FileNotFoundException {
-        this.GameBoard =GameBoard;
-        this.activePieces = GameBoard.getActivePieces();
-        this.capturedPiece = GameBoard.getCapturedPiece();
-        capturedGrid = new GridPane();
-        this.add(capturedGrid, 1, 0);
-        Boardcanvas = new Canvas(800, 800);
-        Capturedcanvas = new Canvas(300, 800);
-        gc = Boardcanvas.getGraphicsContext2D();
-        capturedGc = Capturedcanvas.getGraphicsContext2D();
-        this.add(Boardcanvas, 0, 0);
-        this.add(Capturedcanvas, 1, 0);
+    public GamePanel(Board board) throws FileNotFoundException {
+        this.board = board;
 
-//        capturedPiece.add(new King(0, 0, true,GameBoard));
+        boardCanvas = new Canvas(800, 800);
+        gc = boardCanvas.getGraphicsContext2D();
 
-        drawCapturedPieces();
-
-        mouse = new Mouse(GameBoard,this);
-        Boardcanvas.setOnMousePressed(e -> {
+        mouse = new Mouse(board, this);
+        boardCanvas.setOnMousePressed(e -> {
             mouse.mousePressed(e);
-            drawHighlightedMoves(GameBoard.getSelectedPiece());
-
+            drawHighlightedMoves(board.getSelectedPiece());
         });
-        Boardcanvas.setOnMouseDragged(e -> {
-            mouse.mouseDragged(e);
-        });
-
-        Boardcanvas.setOnMouseReleased(e -> {
+        boardCanvas.setOnMouseDragged(mouse::mouseDragged);
+        boardCanvas.setOnMouseReleased(e -> {
             try {
                 mouse.mouseReleased(e);
             } catch (FileNotFoundException ex) {
                 throw new RuntimeException(ex);
             }
-            GameBoard.printBoard();
+            board.printBoard();
         });
 
+        setCenter(boardCanvas);
 
+        capturedCanvas = new Canvas(300, 600);
+        capturedGc = capturedCanvas.getGraphicsContext2D();
 
+        rightColumn = new VBox(10);
+        rightColumn.setAlignment(Pos.TOP_CENTER);
+        rightColumn.setStyle("-fx-padding: 15;");
+        rightColumn.getChildren().add(capturedCanvas);
+        VBox.setVgrow(capturedCanvas, Priority.NEVER);
 
+        Separator separator = new Separator();
+        separator.setStyle("-fx-padding: 10 0 10 0;");
+        rightColumn.getChildren().add(separator);
+
+        Button undoButton = new Button("Undo");
+        undoButton.setMaxWidth(Double.MAX_VALUE);
+        undoButton.setOnAction(event -> {
+            try {
+                if (board.undo()) {
+                    update();
+                }
+            } catch (FileNotFoundException e) {
+                throw new RuntimeException(e);
+            }
+        });
+
+        Button restartButton = new Button("Restart");
+        restartButton.setMaxWidth(Double.MAX_VALUE);
+        restartButton.setOnAction(event -> {
+            try {
+                board.reset();
+                update();
+            } catch (FileNotFoundException e) {
+                throw new RuntimeException(e);
+            }
+        });
+
+        rightColumn.getChildren().addAll(undoButton, restartButton);
+        setRight(rightColumn);
+
+        drawCapturedPieces();
     }
-
-
 
     public void startGameThread() {
         gameThread = new Thread(this);
@@ -79,16 +102,12 @@ public class GamePanel extends GridPane implements Runnable {
 
     public void drawHighlightedMoves(Piece selectedPiece) {
         if (selectedPiece != null) {
-//            System.out.println("Drawing highlighted moves for " + selectedPiece.getName());
             for (Move move : selectedPiece.getMoves()) {
-//                System.out.println("drawing move" + move.getRow() + " " + move.getCol());
-                gc.setFill(Color.color(1, 1, 0, 0.5)); // RGBA values0.0 = fully transparent, 1.0 = fully opaque
-
-                gc.fillRect(move.getCol() * tilesize, move.getRow() * tilesize, tilesize, tilesize);
+                gc.setFill(Color.color(1, 1, 0, 0.5));
+                gc.fillRect(move.getCol() * tileSize, move.getRow() * tileSize, tileSize, tileSize);
             }
         }
     }
-
 
     private void drawBoard() {
         for (int i = 0; i < 8; i++) {
@@ -98,123 +117,113 @@ public class GamePanel extends GridPane implements Runnable {
                 } else {
                     gc.setFill(Color.DARKOLIVEGREEN);
                 }
-                gc.fillRect(i * tilesize, j * tilesize, tilesize, tilesize);
+                gc.fillRect(i * tileSize, j * tileSize, tileSize, tileSize);
             }
         }
-        // Draw a thick border around the board
         gc.setStroke(Color.BLACK);
         gc.setLineWidth(1);
-        gc.strokeRect(0, 0, 8 * tilesize, 8 * tilesize);
+        gc.strokeRect(0, 0, 8 * tileSize, 8 * tileSize);
 
-        // Draw coordinates 1-8 and a-h
         gc.setFill(Color.BLACK);
         gc.setFont(Font.font(24));
-        for (int i = 0; i <=8; i++) {
-            gc.fillText(String.valueOf(8 - i), 10, (i + 1) * tilesize - 10);
-            gc.fillText(String.valueOf((char) ('a' + i)), (i + 1) * tilesize - 20, 10);
+        for (int i = 0; i <= 8; i++) {
+            gc.fillText(String.valueOf(8 - i), 10, (i + 1) * tileSize - 10);
+            gc.fillText(String.valueOf((char) ('a' + i)), (i + 1) * tileSize - 20, 10);
         }
     }
+
     private void drawCapturedPieces() {
-        // Clear the captured pieces canvas first
-        capturedGc.clearRect(0, 0, 300, 800);
-        
+        capturedGc.clearRect(0, 0, capturedCanvas.getWidth(), capturedCanvas.getHeight());
+
+        ArrayList<Piece> capturedPieces = board.getCapturedPiece();
         int blackCapturedX = 0;
-        int blackCapturedY = 500;
+        int blackCapturedY = 300;
         int whiteCapturedX = 0;
         int whiteCapturedY = 0;
         int size = 75;
-        int maxWidth = 200; // Width of the captured canvas
-        
-        // Refresh captured pieces list
-        this.capturedPiece = GameBoard.getCapturedPiece();
-        
-        for (Piece p : capturedPiece) {
+        int maxWidth = 200;
+
+        for (Piece p : capturedPieces) {
             if (p.isWhite()) {
                 capturedGc.drawImage(p.getImage(), whiteCapturedX, whiteCapturedY, size, size);
                 whiteCapturedX += 40;
                 if (whiteCapturedX >= maxWidth) {
                     whiteCapturedX = 0;
-                    whiteCapturedY +=100;
+                    whiteCapturedY += 100;
                 }
-            }else{
+            } else {
                 capturedGc.drawImage(p.getImage(), blackCapturedX, blackCapturedY, size, size);
-                blackCapturedX +=40;
-            } if (blackCapturedX >= maxWidth) {
-                blackCapturedX = 0;
-                blackCapturedY +=100;
-
+                blackCapturedX += 40;
+                if (blackCapturedX >= maxWidth) {
+                    blackCapturedX = 0;
+                    blackCapturedY += 100;
+                }
             }
+        }
+    }
 
-        }}
-
-    private void drawPieces(){
-        Piece [][] board = GameBoard.getPieces();
+    private void drawPieces() {
+        Piece[][] pieces = board.getPieces();
         for (int i = 0; i < 8; i++) {
             for (int j = 0; j < 8; j++) {
-                if (board[i][j] != null) {
-                    Image pieceImage = board[i][j].getImage();
+                if (pieces[i][j] != null) {
+                    Image pieceImage = pieces[i][j].getImage();
                     if (pieceImage != null) {
                         try {
-                            gc.drawImage(pieceImage, board[i][j].getX(), board[i][j].getY(), tilesize, tilesize);
+                            gc.drawImage(pieceImage, pieces[i][j].getX(), pieces[i][j].getY(), tileSize, tileSize);
                         } catch (Exception e) {
-                            System.err.println("Error drawing piece at [" + i + "][" + j + "]: " + e.getMessage());
-                            // Draw a placeholder
-                            gc.setFill(javafx.scene.paint.Color.RED);
-                            gc.fillRect(board[i][j].getX(), board[i][j].getY(), tilesize, tilesize);
+                            gc.setFill(Color.RED);
+                            gc.fillRect(pieces[i][j].getX(), pieces[i][j].getY(), tileSize, tileSize);
                         }
                     }
                 }
             }
         }
     }
-    public void update () {
+
+    public void update() {
         drawBoard();
         drawPieces();
         drawCheckIndicator();
         drawGameStatus();
         drawCapturedPieces();
-        drawHighlightedMoves(GameBoard.getSelectedPiece());
+        drawHighlightedMoves(board.getSelectedPiece());
     }
-    
+
     private void drawCheckIndicator() {
-        Board.GameState state = GameBoard.getGameState();
+        Board.GameState state = board.getGameState();
         if (state == Board.GameState.CHECK || state == Board.GameState.WHITE_CHECKMATE || state == Board.GameState.BLACK_CHECKMATE) {
-            // Highlight the king in check
             Piece king = null;
-            boolean checkWhite = false;
-            
+            boolean checkWhite;
+
             if (state == Board.GameState.CHECK) {
-                // Determine which player is in check based on whose turn it is
-                checkWhite = GameBoard.isWhiteTurn();
-            } else if (state == Board.GameState.WHITE_CHECKMATE) {
-                checkWhite = true;
-            } else if (state == Board.GameState.BLACK_CHECKMATE) {
-                checkWhite = false;
+                checkWhite = board.isWhiteTurn();
+            } else {
+                checkWhite = state == Board.GameState.WHITE_CHECKMATE;
             }
-            
-            // Find the king in check
-            for (Piece p : GameBoard.getActivePieces()) {
+
+            for (Piece p : board.getActivePieces()) {
                 if (p instanceof King && p.isWhite() == checkWhite) {
                     king = p;
                     break;
                 }
             }
-            
+
             if (king != null) {
-                gc.setFill(Color.color(1, 0, 0, 0.4)); // Red highlight with transparency
-                gc.fillRect(king.getCol() * tilesize, king.getRow() * tilesize, tilesize, tilesize);
+                gc.setFill(Color.color(1, 0, 0, 0.4));
+                gc.fillRect(king.getCol() * tileSize, king.getRow() * tileSize, tileSize, tileSize);
             }
         }
     }
-    
+
     private void drawGameStatus() {
-        Board.GameState state = GameBoard.getGameState();
+        Board.GameState state = board.getGameState();
         gc.setFill(Color.BLACK);
         gc.setFont(Font.font(20));
-        
-        String statusText = "";
-        String turnText = "Turn: " + (GameBoard.isWhiteTurn() ? "White" : "Black");
-        
+
+        String statusText;
+        String turnText = "Turn: " + (board.isWhiteTurn() ? "White" : "Black");
+
         switch (state) {
             case PLAYING:
                 statusText = turnText;
@@ -235,17 +244,16 @@ public class GamePanel extends GridPane implements Runnable {
                 statusText = "STALEMATE - Draw!";
                 gc.setFill(Color.ORANGE);
                 break;
+            default:
+                statusText = "";
         }
-        
-        // Draw status at the bottom of the board
+
         gc.fillText(statusText, 10, 800 - 10);
     }
 
-
-
+    @Override
     public void run() {
-        //Game loop
-        double drawInterval = (double) 1000000000 / FPS;
+        double drawInterval = 1_000_000_000.0 / FPS;
         long lastTime = System.nanoTime();
         long currentTime;
         long timer = 0;
@@ -254,23 +262,9 @@ public class GamePanel extends GridPane implements Runnable {
             timer += currentTime - lastTime;
             lastTime = currentTime;
             if (timer > drawInterval) {
-                //Draw here
                 update();
                 timer = 0;
             }
         }
-
     }
-    private void copyBoard(Piece[][] board) {
-        for (int i = 0; i < 8; i++) {
-            for (int j = 0; j < 8; j++) {
-                if (board[i][j] != null) {
-                    activePieces.add(board[i][j]);
-                }
-            }
-        }
-
-
-    }
-
 }

@@ -18,7 +18,12 @@ public class Mouse extends MouseAdapter {
         this.board = board;
         this.panel = panel;
     }
+
+    public Board getBoard() {
+        return board;
+    }
     public void mousePressed(MouseEvent e) {
+
         System.out.print("mouse pressed");
         int col = (int) (e.getX()/100);
         int row = (int) (e.getY()/100);
@@ -33,9 +38,12 @@ public class Mouse extends MouseAdapter {
     }
 
     public void mouseDragged(MouseEvent mouseEvent) {
+
         Piece p=  board.getSelectedPiece();
-        p.setX((int) mouseEvent.getX() - 50);
-        p.setY((int) mouseEvent.getY() - 50);
+        if (p != null) {
+            p.setX((int) mouseEvent.getX() - 50);
+            p.setY((int) mouseEvent.getY() - 50);
+        }
 
     }
 /**
@@ -45,7 +53,7 @@ public class Mouse extends MouseAdapter {
  * Prints the coordinates and the name of the selected piece if it exists.
  * Updates the board with the new position of the piece.
  *
- * @param e the MouseEvent triggering this method
+ * @param  the MouseEvent triggering this method
  */
 public void resetPiecePosition(Piece piece, int originalCol, int originalRow) {
     piece.setX(originalCol * 100);
@@ -63,6 +71,7 @@ private PromotionType promptPromotion(boolean isWhite) {
 }
 
 public void mouseReleased(MouseEvent e) throws FileNotFoundException {
+
     System.out.println("mouse released");
     Piece p = board.getSelectedPiece();
     Piece p2 = board.getLastMovedPiece();
@@ -78,7 +87,7 @@ public void mouseReleased(MouseEvent e) throws FileNotFoundException {
         int col = (int) (e.getX() / 100);
         int row = (int) (e.getY() / 100);
         MoveResult result = board.movePiece(col, row, p);
-        if (result.getStatus() == MoveStatus.PROMOTION_REQUIRED) {
+        if (result.isPromotionRequest()) {
             PromotionType choice = promptPromotion(p.isWhite());
             if (choice != null) {
                 MoveResult finalizeResult = board.movePiece(col, row, p, choice);

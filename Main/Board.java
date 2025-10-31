@@ -2,7 +2,9 @@ package Main;
 
 import Piece.*;
 import java.io.FileNotFoundException;
+import java.util.ArrayDeque;
 import java.util.ArrayList;
+import java.util.Deque;
 
 public class Board {
     final int col = 8;
@@ -17,6 +19,7 @@ public class Board {
     private King blackKing;
     private GameState gameState = GameState.PLAYING;
     private Position enPassantTarget;
+    private final Deque<Board> history = new ArrayDeque<>();
 
     public Board() throws FileNotFoundException {
         board = new Piece[col][row];
@@ -221,6 +224,13 @@ public class Board {
 
         PromotionType typeToUse = promotionSquare ? (promotionType != null ? promotionType : PromotionType.QUEEN) : null;
 
+        try {
+            pushState();
+        } catch (FileNotFoundException e) {
+            e.printStackTrace();
+            return MoveResult.illegal("Unable to save game state for undo");
+        }
+
         Piece movedPiece = performMoveInternal(piece, row, col, false, typeToUse);
         boolean promoted = piece instanceof Pawn && !(movedPiece instanceof Pawn);
         movedPiece.setHasMoved(true);
@@ -303,6 +313,35 @@ public class Board {
         activePieces.remove(piece);
         System.out.println(piece.getName() + " captured" + piece.getRow() + " " + piece.getCol());
         board[piece.getRow()][piece.getCol()] = null;
+    }
+
+    public boolean undo() throws FileNotFoundException {
+        if (history.isEmpty()) {
+            return false;
+        }
+        Board previous = history.pop();
+        restoreFrom(previous);
+        return true;
+    }
+
+    public void clearHistory() {
+        history.clear();
+    }
+
+    public void reset() throws FileNotFoundException {
+        board = new Piece[col][row];
+        activePieces = new ArrayList<>();
+        capturedPieces = new ArrayList<>();
+        setBoard();
+        whiteKing = getKing(true);
+        blackKing = getKing(false);
+        enPassantTarget = null;
+        whiteTurn = true;
+        lastMovedPiece = null;
+        selectedPiece = null;
+        recalculateAllMoves();
+        updateGameState();
+        clearHistory();
     }
 
     private MoveResult validateMove(Piece piece, int targetRow, int targetCol) throws FileNotFoundException {
@@ -432,6 +471,49 @@ public class Board {
         for (Piece activePiece : activePieces) {
             activePiece.calculateMoves();
         }
+    }
+
+    private void pushState() throws FileNotFoundException {
+        history.push(new Board(this));
+    }
+
+    private void restoreFrom(Board other) throws FileNotFoundException {
+        Piece[][] newBoard = new Piece[col][row];
+        ArrayList<Piece> newActive = new ArrayList<>();
+
+        for (int i = 0; i < col; i++) {
+            for (int j = 0; j < row; j++) {
+                if (other.board[i][j] != null) {
+                    Piece copy = other.board[i][j].DeepCopy(this);
+                    copy.setRow(i);
+                    copy.setCol(j);
+                    copy.setX(j * 100);
+                    copy.setY(i * 100);
+                    newBoard[i][j] = copy;
+                    newActive.add(copy);
+                }
+            }
+        }
+
+        this.board = newBoard;
+        this.activePieces = newActive;
+        this.capturedPieces = new ArrayList<>(other.capturedPieces);
+        this.whiteTurn = other.whiteTurn;
+        this.gameState = other.gameState;
+        this.enPassantTarget = other.enPassantTarget != null ? new Position(other.enPassantTarget.getRow(), other.enPassantTarget.getCol()) : null;
+        this.selectedPiece = null;
+
+        this.whiteKing = getKing(true);
+        this.blackKing = getKing(false);
+
+        if (other.lastMovedPiece != null) {
+            this.lastMovedPiece = this.board[other.lastMovedPiece.getRow()][other.lastMovedPiece.getCol()];
+        } else {
+            this.lastMovedPiece = null;
+        }
+
+        recalculateAllMoves();
+        updateGameState();
     }
     public void switchTurn(){
         whiteTurn = !whiteTurn;

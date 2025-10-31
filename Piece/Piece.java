@@ -36,6 +36,7 @@ public abstract class Piece {
         this.x = p.getX();
         this.y = p.getY();
         this.hasMoved = p.hasMoved();
+        this.image = p.image;
     }
 
     public Image getURL(String path) {
