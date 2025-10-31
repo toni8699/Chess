@@ -16,6 +16,7 @@ public class Board {
     private King whiteKing;
     private King blackKing;
     private GameState gameState = GameState.PLAYING;
+    private Position enPassantTarget;
 
     public Board() throws FileNotFoundException {
         board = new Piece[col][row];
@@ -24,6 +25,7 @@ public class Board {
         setBoard();
         whiteKing = getKing(true);
         blackKing = getKing(false);
+        enPassantTarget = null;
         updateGameState(); // Initialize game state
         printBoard();
     }
@@ -44,6 +46,9 @@ public class Board {
         lastMovedPiece = originalBoard.lastMovedPiece;
         selectedPiece = originalBoard.selectedPiece;
         whiteTurn = originalBoard.whiteTurn;
+        if (originalBoard.enPassantTarget != null) {
+            enPassantTarget = new Position(originalBoard.enPassantTarget.getRow(), originalBoard.enPassantTarget.getCol());
+        }
         gameState = GameState.PLAYING; // Will be recalculated if needed
     }
 //    public Board DeepCopy(){
@@ -192,6 +197,10 @@ public class Board {
      * @param piece the Piece object to be moved
      */
     public MoveResult movePiece(int col, int row, Piece piece) throws FileNotFoundException {
+        return movePiece(col, row, piece, null);
+    }
+
+    public MoveResult movePiece(int col, int row, Piece piece, PromotionType promotionType) throws FileNotFoundException {
         if (piece == null) {
             return MoveResult.illegal("No piece selected");
         }
@@ -205,13 +214,24 @@ public class Board {
             return validation;
         }
 
-        performMoveInternal(piece, row, col, false);
-        piece.setHasMoved(true);
-        setLastMovedPiece(piece);
+        boolean promotionSquare = piece instanceof Pawn && (row == 0 || row == 7);
+        if (!promotionTypeProvided(promotionType) && promotionSquare) {
+            return MoveResult.promotionRequired();
+        }
+
+        PromotionType typeToUse = promotionSquare ? (promotionType != null ? promotionType : PromotionType.QUEEN) : null;
+
+        Piece movedPiece = performMoveInternal(piece, row, col, false, typeToUse);
+        boolean promoted = piece instanceof Pawn && !(movedPiece instanceof Pawn);
+        movedPiece.setHasMoved(true);
+        setLastMovedPiece(movedPiece);
         switchTurn();
         recalculateAllMoves();
         updateGameState();
 
+        if (promoted) {
+            return MoveResult.done("Pawn promoted to " + movedPiece.getName());
+        }
         return MoveResult.done();
     }
 
@@ -227,6 +247,10 @@ public class Board {
         }
         Piece targetPiece = board[row][col];
         return targetPiece != null && targetPiece.isWhite() != piece.isWhite();
+    }
+
+    private boolean promotionTypeProvided(PromotionType promotionType) {
+        return promotionType != null;
     }
     public void removePiece ( Piece piece){
         board [piece.getRow()][piece.getCol()] = null;
@@ -266,7 +290,7 @@ public class Board {
             return false;
         }
         
-        tempBoard.performMoveInternal(tempPiece, targetRow, targetCol, true);
+        tempBoard.performMoveInternal(tempPiece, targetRow, targetCol, true, PromotionType.QUEEN);
         tempBoard.recalculateAllMoves();
 
         return king.isIncheck();
@@ -310,32 +334,98 @@ public class Board {
         return row < 0 || row >= this.row || col < 0 || col >= this.col;
     }
 
-    private void performMoveInternal(Piece piece, int targetRow, int targetCol, boolean simulation) {
-        if (piece instanceof King && Math.abs(targetCol - piece.getCol()) == 2) {
-            boolean isKingSide = targetCol > piece.getCol();
+    private Piece performMoveInternal(Piece piece, int targetRow, int targetCol, boolean simulation, PromotionType promotionType) throws FileNotFoundException {
+        int originalRow = piece.getRow();
+        int originalCol = piece.getCol();
+
+        if (piece instanceof King && Math.abs(targetCol - originalCol) == 2) {
+            boolean isKingSide = targetCol > originalCol;
             Castle((King) piece, isKingSide);
-            return;
+            enPassantTarget = null;
+            return piece;
         }
 
+        boolean isPawn = piece instanceof Pawn;
         Piece capturedPiece = board[targetRow][targetCol];
+        int capturedRow = targetRow;
+
+        if (isPawn && capturedPiece == null && originalCol != targetCol && enPassantTarget != null
+                && enPassantTarget.getRow() == targetRow && enPassantTarget.getCol() == targetCol) {
+            capturedRow = targetRow + (piece.isWhite() ? 1 : -1);
+            capturedPiece = board[capturedRow][targetCol];
+        }
+
         if (capturedPiece != null) {
             if (capturedPiece.isWhite() == piece.isWhite()) {
                 throw new IllegalStateException("Attempted to capture allied piece");
             }
             if (simulation) {
-                board[targetRow][targetCol] = null;
+                board[capturedRow][targetCol] = null;
                 activePieces.remove(capturedPiece);
             } else {
                 capture(capturedPiece);
             }
         }
 
-        board[piece.getRow()][piece.getCol()] = null;
+        board[originalRow][originalCol] = null;
         board[targetRow][targetCol] = piece;
         piece.setCol(targetCol);
         piece.setRow(targetRow);
         piece.setX(targetCol * 100);
         piece.setY(targetRow * 100);
+
+        Piece movedPiece = piece;
+
+        if (isPawn && (targetRow == 0 || targetRow == 7)) {
+            PromotionType type = promotionType != null ? promotionType : PromotionType.QUEEN;
+            movedPiece = promotePawn((Pawn) piece, targetRow, targetCol, simulation, type);
+        }
+
+        if (isPawn && Math.abs(targetRow - originalRow) == 2) {
+            int betweenRow = originalRow + (piece.isWhite() ? -1 : 1);
+            enPassantTarget = new Position(betweenRow, targetCol);
+        } else {
+            enPassantTarget = null;
+        }
+        return movedPiece;
+    }
+
+    private Piece promotePawn(Pawn pawn, int targetRow, int targetCol, boolean simulation, PromotionType promotionType) throws FileNotFoundException {
+        Piece promotedPiece;
+        switch (promotionType) {
+            case ROOK:
+                promotedPiece = new Rook(targetRow, targetCol, pawn.isWhite(), this);
+                break;
+            case BISHOP:
+                promotedPiece = new Bishop(targetRow, targetCol, pawn.isWhite(), this);
+                break;
+            case KNIGHT:
+                promotedPiece = new Knight(targetRow, targetCol, pawn.isWhite(), this);
+                break;
+            case QUEEN:
+            default:
+                promotedPiece = new Queen(targetRow, targetCol, pawn.isWhite(), this);
+                break;
+        }
+        promotedPiece.setHasMoved(true);
+        promotedPiece.setX(targetCol * 100);
+        promotedPiece.setY(targetRow * 100);
+
+        // Replace pawn in active pieces list
+        for (int i = 0; i < activePieces.size(); i++) {
+            if (activePieces.get(i) == pawn) {
+                activePieces.set(i, promotedPiece);
+                break;
+            }
+        }
+
+        board[targetRow][targetCol] = promotedPiece;
+
+        if (!simulation) {
+            System.out.println("Pawn promoted to Queen at " + targetRow + "," + targetCol);
+        }
+
+        return promotedPiece;
     }
 
     private void recalculateAllMoves() {
@@ -372,6 +462,9 @@ public class Board {
     }
     public ArrayList<Piece> getCapturedPiece() {
         return capturedPieces;
+    }
+    public Position getEnPassantTarget() {
+        return enPassantTarget;
     }
     
     /**

@@ -2,10 +2,7 @@ package Piece;
 
 import Main.Board;
 import Main.Move;
-import javafx.scene.canvas.Canvas;
 import javafx.scene.image.Image;
-import javafx.scene.image.WritableImage;
-import javafx.scene.paint.Color;
 
 import java.io.FileInputStream;
 import java.io.FileNotFoundException;
@@ -38,6 +35,7 @@ public abstract class Piece {
         this.board = board;
         this.x = p.getX();
         this.y = p.getY();
+        this.hasMoved = p.hasMoved();
     }
 
     public Image getURL(String path) {

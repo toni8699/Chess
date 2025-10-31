@@ -2,6 +2,7 @@ package Piece;
 
 import Main.Board;
 import Main.Move;
+import Main.Position;
 
 import java.io.FileNotFoundException;
 import java.util.ArrayList;
@@ -81,11 +82,14 @@ public class Pawn extends Piece {
                 moves.add(new Move(newRow, getCol() + 1));
             }
         }
+
+        Position enPassantTarget = board.getEnPassantTarget();
+        if (enPassantTarget != null) {
+            int targetRow = getRow() + direction;
+            if (targetRow == enPassantTarget.getRow() && Math.abs(enPassantTarget.getCol() - getCol()) == 1) {
+                moves.add(new Move(enPassantTarget.getRow(), enPassantTarget.getCol()));
+            }
         }
 
+    }
 }
-
-
-
-
-
