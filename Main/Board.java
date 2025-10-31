@@ -3,7 +3,6 @@ package Main;
 import Piece.*;
 import java.io.FileNotFoundException;
 import java.util.ArrayList;
-import java.util.Arrays;
 
 public class Board {
     final int col = 8;
@@ -15,24 +14,23 @@ public class Board {
     private Piece lastMovedPiece;
     private boolean whiteTurn = true;
     private King whiteKing;
-    private  King blackKing;
+    private King blackKing;
+    private GameState gameState = GameState.PLAYING;
 
     public Board() throws FileNotFoundException {
         board = new Piece[col][row];
         activePieces = new ArrayList<>();
         capturedPieces = new ArrayList<>();
         setBoard();
-//        board[7][0] = new Rook (7, 0, false, this);
-//        board [7][1] = new Knight(7, 1, true, this);
-//        activePieces.add(board[7][0]);
-//        activePieces.add(board[7][1]);
-//        whiteKing = getKing(true);
-//        blackKing = getKing(false);
-//        System.out.println(whiteKing.isIncheck());
+        whiteKing = getKing(true);
+        blackKing = getKing(false);
+        updateGameState(); // Initialize game state
         printBoard();
     }
     public Board(Board originalBoard) throws FileNotFoundException {
-         board = new Piece[col][row];
+        board = new Piece[col][row];
+        activePieces = new ArrayList<>();
+        capturedPieces = new ArrayList<>();
         for (int i = 0; i < 8; i++) {
             for (int j = 0; j < 8; j++) {
                 if (originalBoard.board[i][j] != null) {
@@ -46,6 +44,7 @@ public class Board {
         lastMovedPiece = originalBoard.lastMovedPiece;
         selectedPiece = originalBoard.selectedPiece;
         whiteTurn = originalBoard.whiteTurn;
+        gameState = GameState.PLAYING; // Will be recalculated if needed
     }
 //    public Board DeepCopy(){
 //        return new Board(this);
@@ -192,35 +191,28 @@ public class Board {
      * @param row the target row index to move the piece to
      * @param piece the Piece object to be moved
      */
-    public boolean movePiece(int col, int row, Piece piece) throws FileNotFoundException {
-
-        if (isValidMove(piece, row, col) ) {
-            switchTurn();
-            if (piece instanceof King) {
-                if (col == piece.getCol() + 2) {
-                    Castle((King) piece, true);
-                } else if (col == piece.getCol() - 2) {
-                    Castle((King) piece, false);
-                }
-            }
-            System.out.println(piece.getName() + " moved from " + piece.getRow() + "," + piece.getCol() + " to " + row + "," + col);
-            board[piece.getRow()][piece.getCol()] = null;
-            board[row][col] = piece;
-            piece.setCol(col);
-            piece.setRow(row);
-            piece.setX(col * 100);
-            piece.setY(row * 100);
-            //recalculate moves
-            piece.calculateMoves();
-            System.out.println("moves: " + piece.getMoves());
-            piece.setHasMoved(true);
-            return true;
-        }else{
-            System.out.println("Invalid move for " + piece.getName() + " from " + piece.getRow() + "," + piece.getCol() + " to " + row + "," + col);
+    public MoveResult movePiece(int col, int row, Piece piece) throws FileNotFoundException {
+        if (piece == null) {
+            return MoveResult.illegal("No piece selected");
         }
 
-        return false;
+        if (gameState != GameState.PLAYING && gameState != GameState.CHECK) {
+            return MoveResult.illegal("Game already finished");
+        }
 
+        MoveResult validation = validateMove(piece, row, col);
+        if (!validation.isDone()) {
+            return validation;
+        }
+
+        performMoveInternal(piece, row, col, false);
+        piece.setHasMoved(true);
+        setLastMovedPiece(piece);
+        switchTurn();
+        recalculateAllMoves();
+        updateGameState();
+
+        return MoveResult.done();
     }
 
 
@@ -249,66 +241,35 @@ public class Board {
     /**
      * Determines if a piece can be moved to a specific target location.
      * Checks if the target location is empty or occupied by a piece of
-     * the opposite color. If the target location is occupied by a piece
-     * of the opposite color, the piece is captured and removed from the board.
+     * the opposite color.
      *
-     * @param piece the Piece object to be moved
+     * @param p the Piece object to be moved
      * @param targetRow the target row index to move the piece to
      * @param targetCol the target column index to move the piece to
      * @return true if the piece can be moved to the target location, false otherwise
      */
-    public boolean isValidMove(Piece piece, int targetRow, int targetCol) throws FileNotFoundException {
-        Piece pieceAtRowCol = board[targetRow][targetCol];
-//         Check if it's the correct player's turn
-        if ((isWhiteTurn() && !piece.isWhite()) || (!isWhiteTurn() && piece.isWhite())) {
-            System.out.println("Not your turn");
-            return false;
-        }
-//        if (moveLeavesKingInCheck(piece, targetRow, targetCol)) {
-//            return false;
-//        }
-//         Check if the piece can legally move to the target location
-        if (piece.canMove(targetRow, targetCol)) {
-            if (isEmpty(targetRow, targetCol) || isValidCapture(targetRow, targetCol, piece)) {
-                if (pieceAtRowCol != null) {
-                    System.out.println(pieceAtRowCol.getName() + " captured");
-                        capture(pieceAtRowCol);
-                    }
-                    return true;
-                }
-        }
-        return true;
-    }
-
-    public boolean moveLeavesKingInCheck(Piece p , int targetRow, int targetCol) throws FileNotFoundException {
+    public boolean moveLeavesKingInCheck(Piece p, int targetRow, int targetCol) throws FileNotFoundException {
         Board tempBoard = new Board(this);
         Piece tempPiece = tempBoard.getPiece(p.getRow(), p.getCol());
-        King king ;
-        if (p.isWhite()){
+        if (tempPiece == null) {
+            return false;
+        }
+        
+        King king;
+        if (p.isWhite()) {
             king = tempBoard.whiteKing;
-        }else{
+        } else {
             king = tempBoard.blackKing;
         }
-        tempBoard.board[targetRow][targetCol] = tempPiece;
-        tempBoard.board[p.getRow()][p.getCol()] = null;
-        tempPiece.setRow(targetRow);
-        tempPiece.setCol(targetCol);
-        System.out.println("priting tmp board");
-        tempBoard.printBoard();
-        for (Piece piece : tempBoard.activePieces) {
-            System.out.println("recalculating moves for " + piece.getName());
-            if (!piece.isWhite()) {
-                piece.calculateMoves();
-                System.out.println("moves: " + piece.getMoves());
-            }
+        
+        if (king == null) {
+            return false;
         }
-        if (king.isIncheck()){
-            System.out.println(king.getColor() + " in check can't move");
-            return true;
-        }else{
-            System.out.println(king.getColor() + " not in check");
-        }
-        return false;
+        
+        tempBoard.performMoveInternal(tempPiece, targetRow, targetCol, true);
+        tempBoard.recalculateAllMoves();
+
+        return king.isIncheck();
     }
 
 
@@ -318,6 +279,69 @@ public class Board {
         activePieces.remove(piece);
         System.out.println(piece.getName() + " captured" + piece.getRow() + " " + piece.getCol());
         board[piece.getRow()][piece.getCol()] = null;
+    }
+
+    private MoveResult validateMove(Piece piece, int targetRow, int targetCol) throws FileNotFoundException {
+        if (isOutOfBounds(targetRow, targetCol)) {
+            return MoveResult.illegal("Destination out of bounds");
+        }
+
+        if ((isWhiteTurn() && !piece.isWhite()) || (!isWhiteTurn() && piece.isWhite())) {
+            return MoveResult.notYourTurn();
+        }
+
+        piece.calculateMoves();
+        if (!piece.canMove(targetRow, targetCol)) {
+            return MoveResult.illegal("Piece cannot move to that square");
+        }
+
+        if (!isEmpty(targetRow, targetCol) && !isValidCapture(targetRow, targetCol, piece)) {
+            return MoveResult.illegal("Destination occupied by ally");
+        }
+
+        if (moveLeavesKingInCheck(piece, targetRow, targetCol)) {
+            return MoveResult.leavesKingInCheck();
+        }
+
+        return MoveResult.done();
+    }
+
+    private boolean isOutOfBounds(int row, int col) {
+        return row < 0 || row >= this.row || col < 0 || col >= this.col;
+    }
+
+    private void performMoveInternal(Piece piece, int targetRow, int targetCol, boolean simulation) {
+        if (piece instanceof King && Math.abs(targetCol - piece.getCol()) == 2) {
+            boolean isKingSide = targetCol > piece.getCol();
+            Castle((King) piece, isKingSide);
+            return;
+        }
+
+        Piece capturedPiece = board[targetRow][targetCol];
+        if (capturedPiece != null) {
+            if (capturedPiece.isWhite() == piece.isWhite()) {
+                throw new IllegalStateException("Attempted to capture allied piece");
+            }
+            if (simulation) {
+                board[targetRow][targetCol] = null;
+                activePieces.remove(capturedPiece);
+            } else {
+                capture(capturedPiece);
+            }
+        }
+
+        board[piece.getRow()][piece.getCol()] = null;
+        board[targetRow][targetCol] = piece;
+        piece.setCol(targetCol);
+        piece.setRow(targetRow);
+        piece.setX(targetCol * 100);
+        piece.setY(targetRow * 100);
+    }
+
+    private void recalculateAllMoves() {
+        for (Piece activePiece : activePieces) {
+            activePiece.calculateMoves();
+        }
     }
     public void switchTurn(){
         whiteTurn = !whiteTurn;
@@ -348,6 +372,135 @@ public class Board {
     }
     public ArrayList<Piece> getCapturedPiece() {
         return capturedPieces;
+    }
+    
+    /**
+     * Updates the game state based on check, checkmate, and stalemate conditions.
+     * Note: After a move, turn switches, so we check the player whose turn it NOW is.
+     */
+    public void updateGameState() {
+        if (whiteKing == null || blackKing == null) {
+            return;
+        }
+        
+        // After move, turn has switched, so check the player whose turn it is now
+        if (isWhiteTurn()) {
+            // It's white's turn - check if white is in check/checkmate/stalemate
+            if (isCheckmate(true)) {
+                gameState = GameState.WHITE_CHECKMATE;
+            } else if (whiteKing.isIncheck()) {
+                gameState = GameState.CHECK;
+            } else if (isStalemate(true)) {
+                gameState = GameState.STALEMATE;
+            } else {
+                gameState = GameState.PLAYING;
+            }
+        } else {
+            // It's black's turn - check if black is in check/checkmate/stalemate
+            if (isCheckmate(false)) {
+                gameState = GameState.BLACK_CHECKMATE;
+            } else if (blackKing.isIncheck()) {
+                gameState = GameState.CHECK;
+            } else if (isStalemate(false)) {
+                gameState = GameState.STALEMATE;
+            } else {
+                gameState = GameState.PLAYING;
+            }
+        }
+    }
+    
+    /**
+     * Checks if the current player has any legal moves.
+     * @param isWhite whether to check for white or black
+     * @return true if the player has at least one legal move
+     */
+    private boolean hasLegalMoves(boolean isWhite) {
+        for (Piece piece : activePieces) {
+            if (piece.isWhite() == isWhite) {
+                ArrayList<Move> moves = piece.getMoves();
+                for (Move move : moves) {
+                    // Check bounds
+                    if (move.getRow() < 0 || move.getRow() >= 8 || 
+                        move.getCol() < 0 || move.getCol() >= 8) {
+                        continue;
+                    }
+                    
+                    try {
+                        // Check if move doesn't leave king in check
+                        if (!moveLeavesKingInCheck(piece, move.getRow(), move.getCol())) {
+                            // Verify the square is empty or contains an enemy piece
+                            if (isEmpty(move.getRow(), move.getCol()) || 
+                                isValidCapture(move.getRow(), move.getCol(), piece)) {
+                                return true;
+                            }
+                        }
+                    } catch (FileNotFoundException e) {
+                        // Skip this move if there's an error
+                        continue;
+                    }
+                }
+            }
+        }
+        return false;
+    }
+    
+    /**
+     * Determines if the current player is in checkmate.
+     * @param isWhite whether to check for white or black
+     * @return true if the player is in checkmate
+     */
+    public boolean isCheckmate(boolean isWhite) {
+        King king = isWhite ? whiteKing : blackKing;
+        if (king == null) {
+            return false;
+        }
+        
+        // Must be in check
+        if (!king.isIncheck()) {
+            return false;
+        }
+        
+        // Must have no legal moves
+        return !hasLegalMoves(isWhite);
+    }
+    
+    /**
+     * Determines if the current player is in stalemate.
+     * @param isWhite whether to check for white or black
+     * @return true if the player is in stalemate
+     */
+    public boolean isStalemate(boolean isWhite) {
+        King king = isWhite ? whiteKing : blackKing;
+        if (king == null) {
+            return false;
+        }
+        
+        // Must NOT be in check
+        if (king.isIncheck()) {
+            return false;
+        }
+        
+        // Must have no legal moves
+        return !hasLegalMoves(isWhite);
+    }
+    
+    /**
+     * Gets the current game state.
+     * @return the current GameState
+     */
+    public GameState getGameState() {
+        return gameState;
+    }
+    
+    /**
+     * Enum representing the possible game states.
+     */
+    public enum GameState {
+        PLAYING,
+        CHECK,
+        WHITE_CHECKMATE,
+        BLACK_CHECKMATE,
+        STALEMATE
     }
 }
 

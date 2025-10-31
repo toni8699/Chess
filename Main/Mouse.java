@@ -65,11 +65,13 @@ public void mouseReleased(MouseEvent e) throws FileNotFoundException {
         int originalRow = p.getRow();
         int col = (int) (e.getX() / 100);
         int row = (int) (e.getY() / 100);
-        if (!board.movePiece(col, row, p)) {
+        MoveResult result = board.movePiece(col, row, p);
+        if (!result.isDone()) {
             resetPiecePosition(p, originalCol, originalRow);
+            if (result.getMessage() != null) {
+                System.out.println(result.getMessage());
+            }
         }
-        board.setLastMovedPiece(p);
-
         board.setSelectedPiece(null);
     }
 }

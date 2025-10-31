@@ -2,24 +2,17 @@ package Main;
 
 import javafx.scene.canvas.Canvas;
 import javafx.scene.canvas.GraphicsContext;
+import javafx.scene.image.Image;
 import javafx.scene.input.MouseEvent;
 import javafx.scene.layout.GridPane;
 import javafx.scene.layout.Pane;
 import javafx.scene.paint.Color;
 import javafx.scene.text.Font;
-import java.awt.*;
-import java.awt.event.MouseAdapter;
-
-import java.awt.event.MouseMotionListener;
 import java.io.FileNotFoundException;
-import java.lang.reflect.Array;
 import java.util.ArrayList;
-import java.util.Arrays;
 
 import Piece.*;
-
-import static com.sun.java.accessibility.util.AWTEventMonitor.addMouseListener;
-import static com.sun.java.accessibility.util.AWTEventMonitor.addMouseMotionListener;
+import Piece.King;
 
 public class GamePanel extends GridPane implements Runnable {
     private final int FPS = 60;
@@ -122,12 +115,19 @@ public class GamePanel extends GridPane implements Runnable {
         }
     }
     private void drawCapturedPieces() {
+        // Clear the captured pieces canvas first
+        capturedGc.clearRect(0, 0, 300, 800);
+        
         int blackCapturedX = 0;
         int blackCapturedY = 500;
         int whiteCapturedX = 0;
         int whiteCapturedY = 0;
         int size = 75;
         int maxWidth = 200; // Width of the captured canvas
+        
+        // Refresh captured pieces list
+        this.capturedPiece = GameBoard.getCapturedPiece();
+        
         for (Piece p : capturedPiece) {
             if (p.isWhite()) {
                 capturedGc.drawImage(p.getImage(), whiteCapturedX, whiteCapturedY, size, size);
@@ -148,23 +148,97 @@ public class GamePanel extends GridPane implements Runnable {
         }}
 
     private void drawPieces(){
-//        System.out.println("being called");
         Piece [][] board = GameBoard.getPieces();
         for (int i = 0; i < 8; i++) {
             for (int j = 0; j < 8; j++) {
                 if (board[i][j] != null) {
-                    gc.drawImage(board[i][j].getImage(), board[i][j].getX(), board[i][j].getY(), tilesize, tilesize);
+                    Image pieceImage = board[i][j].getImage();
+                    if (pieceImage != null) {
+                        try {
+                            gc.drawImage(pieceImage, board[i][j].getX(), board[i][j].getY(), tilesize, tilesize);
+                        } catch (Exception e) {
+                            System.err.println("Error drawing piece at [" + i + "][" + j + "]: " + e.getMessage());
+                            // Draw a placeholder
+                            gc.setFill(javafx.scene.paint.Color.RED);
+                            gc.fillRect(board[i][j].getX(), board[i][j].getY(), tilesize, tilesize);
+                        }
+                    }
                 }
             }
         }
-
     }
     public void update () {
         drawBoard();
         drawPieces();
+        drawCheckIndicator();
+        drawGameStatus();
         drawCapturedPieces();
         drawHighlightedMoves(GameBoard.getSelectedPiece());
-
+    }
+    
+    private void drawCheckIndicator() {
+        Board.GameState state = GameBoard.getGameState();
+        if (state == Board.GameState.CHECK || state == Board.GameState.WHITE_CHECKMATE || state == Board.GameState.BLACK_CHECKMATE) {
+            // Highlight the king in check
+            Piece king = null;
+            boolean checkWhite = false;
+            
+            if (state == Board.GameState.CHECK) {
+                // Determine which player is in check based on whose turn it is
+                checkWhite = GameBoard.isWhiteTurn();
+            } else if (state == Board.GameState.WHITE_CHECKMATE) {
+                checkWhite = true;
+            } else if (state == Board.GameState.BLACK_CHECKMATE) {
+                checkWhite = false;
+            }
+            
+            // Find the king in check
+            for (Piece p : GameBoard.getActivePieces()) {
+                if (p instanceof King && p.isWhite() == checkWhite) {
+                    king = p;
+                    break;
+                }
+            }
+            
+            if (king != null) {
+                gc.setFill(Color.color(1, 0, 0, 0.4)); // Red highlight with transparency
+                gc.fillRect(king.getCol() * tilesize, king.getRow() * tilesize, tilesize, tilesize);
+            }
+        }
+    }
+    
+    private void drawGameStatus() {
+        Board.GameState state = GameBoard.getGameState();
+        gc.setFill(Color.BLACK);
+        gc.setFont(Font.font(20));
+        
+        String statusText = "";
+        String turnText = "Turn: " + (GameBoard.isWhiteTurn() ? "White" : "Black");
+        
+        switch (state) {
+            case PLAYING:
+                statusText = turnText;
+                break;
+            case CHECK:
+                statusText = turnText + " - CHECK!";
+                gc.setFill(Color.RED);
+                break;
+            case WHITE_CHECKMATE:
+                statusText = "WHITE CHECKMATE - Black Wins!";
+                gc.setFill(Color.RED);
+                break;
+            case BLACK_CHECKMATE:
+                statusText = "BLACK CHECKMATE - White Wins!";
+                gc.setFill(Color.RED);
+                break;
+            case STALEMATE:
+                statusText = "STALEMATE - Draw!";
+                gc.setFill(Color.ORANGE);
+                break;
+        }
+        
+        // Draw status at the bottom of the board
+        gc.fillText(statusText, 10, 800 - 10);
     }
 
 

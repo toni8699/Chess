@@ -53,26 +53,34 @@ public class Pawn extends Piece {
 
     @Override
     public void calculateMoves() {
-            moves = new ArrayList<>();
-            int direction = isWhite() ? -1 : 1; // White pawns move up (-1), black pawns move down (+1)
+        moves = new ArrayList<>();
+        int direction = isWhite() ? -1 : 1; // White pawns move up (-1), black pawns move down (+1)
+        int newRow = getRow() + direction;
+        
+        // Check if newRow is within bounds before proceeding
+        if (newRow >= 0 && newRow < 8) {
             // Move forward one square
-            if (board.isEmpty(getRow() + direction, getCol())) {
-                moves.add(new Move(getRow() + direction, getCol()));
+            if (board.isEmpty(newRow, getCol())) {
+                moves.add(new Move(newRow, getCol()));
             }
 
             // Move forward two squares from starting position
-            if (!hasMoved() && board.isEmpty(getRow() + direction, getCol()) && board.isEmpty(getRow() + 2 * direction, getCol())) {
-                moves.add(new Move(getRow() + 2 * direction, getCol()));
+            if (!hasMoved() && board.isEmpty(newRow, getCol())) {
+                int twoSquaresRow = getRow() + 2 * direction;
+                if (twoSquaresRow >= 0 && twoSquaresRow < 8 && board.isEmpty(twoSquaresRow, getCol())) {
+                    moves.add(new Move(twoSquaresRow, getCol()));
+                }
             }
 
             // Capture diagonally left
-            if (board.isValidCapture(getRow() + direction, getCol() - 1, this)) {
-                moves.add(new Move(getRow() + direction, getCol() - 1));
+            if (getCol() > 0 && board.isValidCapture(newRow, getCol() - 1, this)) {
+                moves.add(new Move(newRow, getCol() - 1));
             }
             // Capture diagonally right
-            if (board.isValidCapture(getRow() + direction, getCol() + 1, this)) {
-                moves.add(new Move(getRow() + direction, getCol() + 1));
+            if (getCol() < 7 && board.isValidCapture(newRow, getCol() + 1, this)) {
+                moves.add(new Move(newRow, getCol() + 1));
             }
+        }
         }
 
 }

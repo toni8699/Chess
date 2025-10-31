@@ -2,7 +2,10 @@ package Piece;
 
 import Main.Board;
 import Main.Move;
+import javafx.scene.canvas.Canvas;
 import javafx.scene.image.Image;
+import javafx.scene.image.WritableImage;
+import javafx.scene.paint.Color;
 
 import java.io.FileInputStream;
 import java.io.FileNotFoundException;
@@ -37,9 +40,22 @@ public abstract class Piece {
         this.y = p.getY();
     }
 
-    public Image getURL( String path) throws FileNotFoundException {
-        InputStream stream = new FileInputStream(path);
-        return new Image(stream);
+    public Image getURL(String path) {
+        try {
+            InputStream stream = new FileInputStream(path);
+            return new Image(stream);
+        } catch (FileNotFoundException e) {
+            System.err.println("Error loading image: " + path);
+            e.printStackTrace();
+            // Create a simple colored rectangle as fallback
+            int size = 100;
+            javafx.scene.image.WritableImage image = new javafx.scene.image.WritableImage(size, size);
+            javafx.scene.canvas.Canvas canvas = new javafx.scene.canvas.Canvas(size, size);
+            javafx.scene.paint.Color color = isWhite ? javafx.scene.paint.Color.WHITE : javafx.scene.paint.Color.BLACK;
+            canvas.getGraphicsContext2D().setFill(color);
+            canvas.getGraphicsContext2D().fillRect(0, 0, size, size);
+            return canvas.snapshot(null, null);
+        }
     }
     public Image getImage(){
         return image;

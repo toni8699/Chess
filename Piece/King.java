@@ -113,12 +113,10 @@ public class King extends Piece {
         }
 
     }
-    public Rook getRookForCastle(Boolean isKingSide){
-        if (isKingSide){
-            return (Rook) board.getPiece(this.getRow(), 7);
-        }else{
-            return (Rook) board.getPiece(this.getRow(), 0);
-        }
+    public Rook getRookForCastle(Boolean isKingSide) {
+        int col = isKingSide ? 7 : 0;
+        Piece piece = board.getPiece(this.getRow(), col);
+        return (piece instanceof Rook) ? (Rook) piece : null;
     }
     public boolean isIncheck(){
         for (Piece p : board.getActivePieces()){
