@@ -12,6 +12,7 @@ public class Board {
     private Piece[][] board;
     private ArrayList<Piece> activePieces = new ArrayList<>();
     private ArrayList<Piece> capturedPieces = new ArrayList<>();
+    private ArrayList<String> moveHistory = new ArrayList<>();
     private Piece selectedPiece;
     private Piece lastMovedPiece;
     private boolean whiteTurn = true;
@@ -25,6 +26,7 @@ public class Board {
         board = new Piece[col][row];
         activePieces = new ArrayList<>();
         capturedPieces = new ArrayList<>();
+        moveHistory = new ArrayList<>();
         setBoard();
         whiteKing = getKing(true);
         blackKing = getKing(false);
@@ -36,6 +38,7 @@ public class Board {
         board = new Piece[col][row];
         activePieces = new ArrayList<>();
         capturedPieces = new ArrayList<>();
+        moveHistory = new ArrayList<>(originalBoard.moveHistory);
         for (int i = 0; i < 8; i++) {
             for (int j = 0; j < 8; j++) {
                 if (originalBoard.board[i][j] != null) {
@@ -217,6 +220,8 @@ public class Board {
             return validation;
         }
 
+        int fromRow = piece.getRow();
+        int fromCol = piece.getCol();
         boolean promotionSquare = piece instanceof Pawn && (row == 0 || row == 7);
         if (!promotionTypeProvided(promotionType) && promotionSquare) {
             return MoveResult.promotionRequired();
@@ -231,6 +236,8 @@ public class Board {
             return MoveResult.illegal("Unable to save game state for undo");
         }
 
+        int capturedCountBefore = capturedPieces.size();
+
         Piece movedPiece = performMoveInternal(piece, row, col, false, typeToUse);
         boolean promoted = piece instanceof Pawn && !(movedPiece instanceof Pawn);
         movedPiece.setHasMoved(true);
@@ -238,6 +245,9 @@ public class Board {
         switchTurn();
         recalculateAllMoves();
         updateGameState();
+
+        boolean captureOccurred = capturedPieces.size() > capturedCountBefore;
+        recordMoveNotation(piece, fromRow, fromCol, row, col, captureOccurred, promoted, movedPiece.getName());
 
         if (promoted) {
             return MoveResult.done("Pawn promoted to " + movedPiece.getName());
@@ -332,6 +342,7 @@ public class Board {
         board = new Piece[col][row];
         activePieces = new ArrayList<>();
         capturedPieces = new ArrayList<>();
+        moveHistory = new ArrayList<>();
         setBoard();
         whiteKing = getKing(true);
         blackKing = getKing(false);
@@ -498,6 +509,7 @@ public class Board {
         this.board = newBoard;
         this.activePieces = newActive;
         this.capturedPieces = new ArrayList<>(other.capturedPieces);
+        this.moveHistory = new ArrayList<>(other.moveHistory);
         this.whiteTurn = other.whiteTurn;
         this.gameState = other.gameState;
         this.enPassantTarget = other.enPassantTarget != null ? new Position(other.enPassantTarget.getRow(), other.enPassantTarget.getCol()) : null;
@@ -547,6 +559,9 @@ public class Board {
     }
     public Position getEnPassantTarget() {
         return enPassantTarget;
+    }
+    public ArrayList<String> getMoveHistory() {
+        return moveHistory;
     }
     
     /**
@@ -676,6 +691,35 @@ public class Board {
         WHITE_CHECKMATE,
         BLACK_CHECKMATE,
         STALEMATE
+    }
+
+    private void recordMoveNotation(Piece piece, int fromRow, int fromCol, int toRow, int toCol,
+                                    boolean capture, boolean promoted, String promotedPieceName) {
+        boolean whiteMove = piece.isWhite();
+        int moveNumber = (moveHistory.size() / 2) + 1;
+
+        StringBuilder sb = new StringBuilder();
+        if (whiteMove) {
+            sb.append(moveNumber).append(". ");
+        } else {
+            sb.append(moveNumber).append("... ");
+        }
+        sb.append(piece.getName().charAt(0));
+        sb.append(" ");
+        sb.append(coordinateToString(fromRow, fromCol));
+        sb.append(capture ? " x " : " -> ");
+        sb.append(coordinateToString(toRow, toCol));
+        if (promoted) {
+            sb.append(" = ");
+            sb.append(promotedPieceName.charAt(0));
+        }
+        moveHistory.add(sb.toString());
+    }
+
+    private String coordinateToString(int row, int col) {
+        char file = (char) ('a' + col);
+        int rank = 8 - row;
+        return "" + file + rank;
     }
 }
 

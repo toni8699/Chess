@@ -2,14 +2,19 @@ package Main;
 
 import Piece.King;
 import Piece.Piece;
+import javafx.application.Platform;
+import javafx.collections.FXCollections;
+import javafx.collections.ObservableList;
 import javafx.geometry.Pos;
 import javafx.scene.canvas.Canvas;
 import javafx.scene.canvas.GraphicsContext;
 import javafx.scene.control.Button;
+import javafx.scene.control.Label;
+import javafx.scene.control.ListView;
 import javafx.scene.control.Separator;
+import javafx.scene.control.ChoiceDialog;
 import javafx.scene.image.Image;
 import javafx.scene.layout.BorderPane;
-import javafx.scene.layout.GridPane;
 import javafx.scene.layout.Priority;
 import javafx.scene.layout.VBox;
 import javafx.scene.paint.Color;
@@ -17,6 +22,7 @@ import javafx.scene.text.Font;
 
 import java.io.FileNotFoundException;
 import java.util.ArrayList;
+import java.util.Arrays;
 
 public class GamePanel extends BorderPane implements Runnable {
     private final int FPS = 60;
@@ -29,6 +35,9 @@ public class GamePanel extends BorderPane implements Runnable {
     private final GraphicsContext capturedGc;
     private final Mouse mouse;
     private final VBox rightColumn;
+    private final ObservableList<String> moveHistoryData;
+    private final ListView<String> moveHistoryView;
+    private boolean boardFlipped = false;
 
     public GamePanel(Board board) throws FileNotFoundException {
         this.board = board;
@@ -66,11 +75,29 @@ public class GamePanel extends BorderPane implements Runnable {
         separator.setStyle("-fx-padding: 10 0 10 0;");
         rightColumn.getChildren().add(separator);
 
+        Label historyLabel = new Label("Move History");
+        historyLabel.setStyle("-fx-font-weight: bold;");
+        rightColumn.getChildren().add(historyLabel);
+
+        moveHistoryData = FXCollections.observableArrayList();
+        moveHistoryView = new ListView<>(moveHistoryData);
+        moveHistoryView.setPrefHeight(300);
+        rightColumn.getChildren().add(moveHistoryView);
+
+        Separator separator2 = new Separator();
+        separator2.setStyle("-fx-padding: 10 0 10 0;");
+        rightColumn.getChildren().add(separator2);
+
+        Button setupButton = new Button("Setup");
+        setupButton.setMaxWidth(Double.MAX_VALUE);
+        setupButton.setOnAction(event -> showSetupDialog());
+
         Button undoButton = new Button("Undo");
         undoButton.setMaxWidth(Double.MAX_VALUE);
         undoButton.setOnAction(event -> {
             try {
                 if (board.undo()) {
+                    alignPiecesToBoard();
                     update();
                 }
             } catch (FileNotFoundException e) {
@@ -83,16 +110,79 @@ public class GamePanel extends BorderPane implements Runnable {
         restartButton.setOnAction(event -> {
             try {
                 board.reset();
+                alignPiecesToBoard();
                 update();
             } catch (FileNotFoundException e) {
                 throw new RuntimeException(e);
             }
         });
 
-        rightColumn.getChildren().addAll(undoButton, restartButton);
+        rightColumn.getChildren().addAll(setupButton, undoButton, restartButton);
         setRight(rightColumn);
 
+        alignPiecesToBoard();
         drawCapturedPieces();
+        moveHistoryData.setAll(board.getMoveHistory());
+    }
+
+    private void showSetupDialog() {
+        ChoiceDialog<String> dialog = new ChoiceDialog<>("White", Arrays.asList("White", "Black"));
+        dialog.setTitle("Game Setup");
+        dialog.setHeaderText(null);
+        dialog.setContentText("Play as:");
+        dialog.showAndWait().ifPresent(choice -> {
+            setBoardFlipped("Black".equalsIgnoreCase(choice));
+            alignPiecesToBoard();
+            update();
+        });
+    }
+
+    private void setBoardFlipped(boolean flipped) {
+        if (this.boardFlipped != flipped) {
+            this.boardFlipped = flipped;
+        }
+    }
+
+    public double tileToScreenCol(int boardCol) {
+        int col = boardFlipped ? 7 - boardCol : boardCol;
+        return col * tileSize;
+    }
+
+    public double tileToScreenRow(int boardRow) {
+        int row = boardFlipped ? 7 - boardRow : boardRow;
+        return row * tileSize;
+    }
+
+    public double getTileSize() {
+        return tileSize;
+    }
+
+    public int screenToBoardCol(double screenX) {
+        int col = clamp(0, 7, (int) (screenX / tileSize));
+        return boardFlipped ? 7 - col : col;
+    }
+
+    public int screenToBoardRow(double screenY) {
+        int row = clamp(0, 7, (int) (screenY / tileSize));
+        return boardFlipped ? 7 - row : row;
+    }
+
+    private int clamp(int min, int max, int value) {
+        return Math.max(min, Math.min(max, value));
+    }
+
+    public void alignPiecesToBoard() {
+        Piece selected = board.getSelectedPiece();
+        Piece[][] pieces = board.getPieces();
+        for (int row = 0; row < 8; row++) {
+            for (int col = 0; col < 8; col++) {
+                Piece piece = pieces[row][col];
+                if (piece != null && piece != selected) {
+                    piece.setX(tileToScreenCol(col));
+                    piece.setY(tileToScreenRow(row));
+                }
+            }
+        }
     }
 
     public void startGameThread() {
@@ -104,20 +194,16 @@ public class GamePanel extends BorderPane implements Runnable {
         if (selectedPiece != null) {
             for (Move move : selectedPiece.getMoves()) {
                 gc.setFill(Color.color(1, 1, 0, 0.5));
-                gc.fillRect(move.getCol() * tileSize, move.getRow() * tileSize, tileSize, tileSize);
+                gc.fillRect(tileToScreenCol(move.getCol()), tileToScreenRow(move.getRow()), tileSize, tileSize);
             }
         }
     }
 
     private void drawBoard() {
-        for (int i = 0; i < 8; i++) {
-            for (int j = 0; j < 8; j++) {
-                if ((i + j) % 2 == 0) {
-                    gc.setFill(Color.WHITESMOKE);
-                } else {
-                    gc.setFill(Color.DARKOLIVEGREEN);
-                }
-                gc.fillRect(i * tileSize, j * tileSize, tileSize, tileSize);
+        for (int col = 0; col < 8; col++) {
+            for (int row = 0; row < 8; row++) {
+                gc.setFill((col + row) % 2 == 0 ? Color.WHITESMOKE : Color.DARKOLIVEGREEN);
+                gc.fillRect(tileToScreenCol(col), tileToScreenRow(row), tileSize, tileSize);
             }
         }
         gc.setStroke(Color.BLACK);
@@ -163,17 +249,30 @@ public class GamePanel extends BorderPane implements Runnable {
     }
 
     private void drawPieces() {
+        Piece selected = board.getSelectedPiece();
         Piece[][] pieces = board.getPieces();
-        for (int i = 0; i < 8; i++) {
-            for (int j = 0; j < 8; j++) {
-                if (pieces[i][j] != null) {
-                    Image pieceImage = pieces[i][j].getImage();
+        for (int row = 0; row < 8; row++) {
+            for (int col = 0; col < 8; col++) {
+                Piece piece = pieces[row][col];
+                if (piece != null) {
+                    Image pieceImage = piece.getImage();
                     if (pieceImage != null) {
                         try {
-                            gc.drawImage(pieceImage, pieces[i][j].getX(), pieces[i][j].getY(), tileSize, tileSize);
+                            double drawX;
+                            double drawY;
+                            if (piece == selected) {
+                                drawX = piece.getX();
+                                drawY = piece.getY();
+                            } else {
+                                drawX = tileToScreenCol(col);
+                                drawY = tileToScreenRow(row);
+                                piece.setX(drawX);
+                                piece.setY(drawY);
+                            }
+                            gc.drawImage(pieceImage, drawX, drawY, tileSize, tileSize);
                         } catch (Exception e) {
                             gc.setFill(Color.RED);
-                            gc.fillRect(pieces[i][j].getX(), pieces[i][j].getY(), tileSize, tileSize);
+                            gc.fillRect(tileToScreenCol(col), tileToScreenRow(row), tileSize, tileSize);
                         }
                     }
                 }
@@ -182,12 +281,14 @@ public class GamePanel extends BorderPane implements Runnable {
     }
 
     public void update() {
+        alignPiecesToBoard();
         drawBoard();
         drawPieces();
         drawCheckIndicator();
         drawGameStatus();
         drawCapturedPieces();
         drawHighlightedMoves(board.getSelectedPiece());
+        moveHistoryData.setAll(board.getMoveHistory());
     }
 
     private void drawCheckIndicator() {
@@ -211,7 +312,7 @@ public class GamePanel extends BorderPane implements Runnable {
 
             if (king != null) {
                 gc.setFill(Color.color(1, 0, 0, 0.4));
-                gc.fillRect(king.getCol() * tileSize, king.getRow() * tileSize, tileSize, tileSize);
+                gc.fillRect(tileToScreenCol(king.getCol()), tileToScreenRow(king.getRow()), tileSize, tileSize);
             }
         }
     }
@@ -262,7 +363,7 @@ public class GamePanel extends BorderPane implements Runnable {
             timer += currentTime - lastTime;
             lastTime = currentTime;
             if (timer > drawInterval) {
-                update();
+                Platform.runLater(this::update);
                 timer = 0;
             }
         }

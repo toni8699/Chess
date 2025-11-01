@@ -94,12 +94,12 @@ public abstract class Piece {
         return isWhite;
     }
 
-    public void setX(int x) {
-        this.x = x;
+    public void setX(double x) {
+        this.x = (int)Math.round(x);
 
     }
-    public void setY(int y) {
-        this.y = y;
+    public void setY(double y) {
+        this.y = (int)Math.round(y);
     }
     public abstract boolean canMove(int row, int col);
     public abstract void calculateMoves();

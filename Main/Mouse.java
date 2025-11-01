@@ -14,6 +14,8 @@ public class Mouse extends MouseAdapter {
     boolean clicked = false;
     GamePanel panel;
     Board board;
+    private double dragOffsetX;
+    private double dragOffsetY;
     public Mouse(Board board, GamePanel panel) {
         this.board = board;
         this.panel = panel;
@@ -25,12 +27,16 @@ public class Mouse extends MouseAdapter {
     public void mousePressed(MouseEvent e) {
 
         System.out.print("mouse pressed");
-        int col = (int) (e.getX()/100);
-        int row = (int) (e.getY()/100);
+        int col = panel.screenToBoardCol(e.getX());
+        int row = panel.screenToBoardRow(e.getY());
         Piece piece = board.getPiece(row, col);
         if (piece != null) {
             piece.calculateMoves();
             board.setSelectedPiece(piece);
+            piece.setX(panel.tileToScreenCol(piece.getCol()));
+            piece.setY(panel.tileToScreenRow(piece.getRow()));
+            dragOffsetX = e.getX() - piece.getX();
+            dragOffsetY = e.getY() - piece.getY();
             panel.drawHighlightedMoves(piece);
             panel.update();
 
@@ -41,8 +47,8 @@ public class Mouse extends MouseAdapter {
 
         Piece p=  board.getSelectedPiece();
         if (p != null) {
-            p.setX((int) mouseEvent.getX() - 50);
-            p.setY((int) mouseEvent.getY() - 50);
+            p.setX(mouseEvent.getX() - dragOffsetX);
+            p.setY(mouseEvent.getY() - dragOffsetY);
         }
 
     }
@@ -56,8 +62,8 @@ public class Mouse extends MouseAdapter {
  * @param  the MouseEvent triggering this method
  */
 public void resetPiecePosition(Piece piece, int originalCol, int originalRow) {
-    piece.setX(originalCol * 100);
-    piece.setY(originalRow * 100);
+    piece.setX(panel.tileToScreenCol(originalCol));
+    piece.setY(panel.tileToScreenRow(originalRow));
 }
 
 private PromotionType promptPromotion(boolean isWhite) {
@@ -84,8 +90,8 @@ public void mouseReleased(MouseEvent e) throws FileNotFoundException {
     if (p != null) {
         int originalCol = p.getCol();
         int originalRow = p.getRow();
-        int col = (int) (e.getX() / 100);
-        int row = (int) (e.getY() / 100);
+        int col = panel.screenToBoardCol(e.getX());
+        int row = panel.screenToBoardRow(e.getY());
         MoveResult result = board.movePiece(col, row, p);
         if (result.isPromotionRequest()) {
             PromotionType choice = promptPromotion(p.isWhite());
@@ -110,6 +116,8 @@ public void mouseReleased(MouseEvent e) throws FileNotFoundException {
         } else if (result.getMessage() != null) {
             System.out.println(result.getMessage());
         }
+        panel.alignPiecesToBoard();
+        panel.update();
         board.setSelectedPiece(null);
     }
 }
