@@ -15,3 +15,5 @@ java --module-path /path/to/javafx-sdk/lib \
 ```
 
 Swap `Main.Main` with `legacy.LegacyMain` to launch the legacy demo.
+
+The immutable UI includes a **Load FEN** button so you can paste arbitrary positions (standard FEN strings) straight into the engine, and a **Load PGN** button to import a full game in PGN notation.

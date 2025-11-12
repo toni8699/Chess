@@ -9,12 +9,18 @@ import javafx.collections.ObservableList;
 import javafx.geometry.Pos;
 import javafx.scene.canvas.Canvas;
 import javafx.scene.canvas.GraphicsContext;
+import javafx.scene.control.Alert;
 import javafx.scene.control.Button;
+import javafx.scene.control.ButtonBar;
+import javafx.scene.control.ButtonType;
 import javafx.scene.control.ChoiceDialog;
 import javafx.scene.control.ComboBox;
+import javafx.scene.control.Dialog;
 import javafx.scene.control.Label;
 import javafx.scene.control.ListView;
 import javafx.scene.control.Separator;
+import javafx.scene.control.TextArea;
+import javafx.scene.control.TextInputDialog;
 import javafx.scene.image.Image;
 import javafx.scene.layout.BorderPane;
 import javafx.scene.layout.Priority;
@@ -37,6 +43,7 @@ public class GamePanel extends BorderPane {
 
     private static final int TILE_SIZE = 100;
     private static final int BOARD_PIXELS = TILE_SIZE * BoardUtils.NUM_TILES_PER_ROW;
+    private static final String STARTING_FEN = "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq -";
 
     private final GameModel model;
     private final Canvas boardCanvas;
@@ -97,6 +104,14 @@ public class GamePanel extends BorderPane {
         });
         box.getChildren().addAll(colorLabel, colorSelector);
 
+        final Button loadFenButton = new Button("Load FEN");
+        loadFenButton.setMaxWidth(Double.MAX_VALUE);
+        loadFenButton.setOnAction(e -> showFenDialog());
+        final Button loadPgnButton = new Button("Load PGN");
+        loadPgnButton.setMaxWidth(Double.MAX_VALUE);
+        loadPgnButton.setOnAction(e -> showPgnDialog());
+        box.getChildren().addAll(loadFenButton, loadPgnButton);
+
         final Separator separatorHistory = new Separator();
         separatorHistory.setStyle("-fx-padding: 10 0 10 0;");
         box.getChildren().add(separatorHistory);
@@ -150,6 +165,66 @@ public class GamePanel extends BorderPane {
         dialog.showAndWait().ifPresent(choice -> {
             setBoardFlipped("Black".equalsIgnoreCase(choice));
             clearSelection();
+            redraw();
+        });
+    }
+
+    private void showFenDialog() {
+        final TextInputDialog dialog = new TextInputDialog(STARTING_FEN);
+        dialog.setTitle("Load FEN");
+        dialog.setHeaderText("Paste a FEN position");
+        dialog.setContentText("FEN:");
+        dialog.showAndWait().ifPresent(fen -> {
+            if (fen == null || fen.isBlank()) {
+                return;
+            }
+            final boolean loaded = model.loadPositionFromFen(fen.trim());
+            if (!loaded) {
+                final Alert alert = new Alert(Alert.AlertType.ERROR);
+                alert.setTitle("Invalid FEN");
+                alert.setHeaderText(null);
+                alert.setContentText("The provided FEN string could not be parsed.");
+                alert.showAndWait();
+                return;
+            }
+            setBoardFlipped(model.getBoard().getCurrentPlayer().getAlliance().isBlack());
+            clearSelection();
+            refreshMoveHistory();
+            updateStatusLabel();
+            redraw();
+        });
+    }
+
+    private void showPgnDialog() {
+        final Dialog<String> dialog = new Dialog<>();
+        dialog.setTitle("Load PGN");
+        dialog.setHeaderText("Paste a PGN game");
+        final ButtonType loadButton = new ButtonType("Load", ButtonBar.ButtonData.OK_DONE);
+        dialog.getDialogPane().getButtonTypes().addAll(loadButton, ButtonType.CANCEL);
+        final TextArea textArea = new TextArea();
+        textArea.setPromptText("[Event \"...\"]\n1. e4 e5 2. Nf3 ...");
+        textArea.setWrapText(true);
+        textArea.setPrefRowCount(12);
+        dialog.getDialogPane().setContent(textArea);
+        dialog.getDialogPane().setPrefWidth(480);
+        dialog.setResultConverter(button -> button == loadButton ? textArea.getText() : null);
+        dialog.showAndWait().ifPresent(pgn -> {
+            if (pgn == null || pgn.isBlank()) {
+                return;
+            }
+            final boolean loaded = model.loadGameFromPgn(pgn);
+            if (!loaded) {
+                final Alert alert = new Alert(Alert.AlertType.ERROR);
+                alert.setTitle("Invalid PGN");
+                alert.setHeaderText(null);
+                alert.setContentText("The PGN text could not be parsed or contained illegal moves.");
+                alert.showAndWait();
+                return;
+            }
+            setBoardFlipped(model.getBoard().getCurrentPlayer().getAlliance().isBlack());
+            clearSelection();
+            refreshMoveHistory();
+            updateStatusLabel();
             redraw();
         });
     }

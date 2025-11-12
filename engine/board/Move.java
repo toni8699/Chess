@@ -279,6 +279,16 @@ public abstract class Move {
         }
 
         @Override
+        public boolean isAttack() {
+            return decoratedMove.isAttack();
+        }
+
+        @Override
+        public Piece getAttackedPiece() {
+            return decoratedMove.getAttackedPiece();
+        }
+
+        @Override
         public Board execute() {
             final Board promotedBoard = decoratedMove.execute();
             final Board.Builder builder = new Board.Builder();
