@@ -1,6 +1,5 @@
-package Main;
+package legacy;
 
-import Piece.*;
 import java.io.FileNotFoundException;
 import java.util.ArrayDeque;
 import java.util.ArrayList;

@@ -1,8 +1,5 @@
-package Piece;
+package legacy;
 
-import Main.Board;
-import Main.Move;
-import Main.Position;
 
 import java.io.FileNotFoundException;
 import java.util.ArrayList;

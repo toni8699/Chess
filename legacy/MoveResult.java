@@ -1,4 +1,4 @@
-package Main;
+package legacy;
 
 public class MoveResult {
 

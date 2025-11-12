@@ -1,4 +1,4 @@
-package Main;
+package legacy;
 
 import java.awt.event.MouseAdapter;
 import java.io.FileNotFoundException;
@@ -6,7 +6,6 @@ import java.util.Arrays;
 import java.util.List;
 import java.util.Optional;
 
-import Piece.*;
 import javafx.scene.control.ChoiceDialog;
 import javafx.scene.input.MouseEvent;
 

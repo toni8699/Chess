@@ -1,7 +1,5 @@
-package Piece;
+package legacy;
 
-import Main.Board;
-import Main.Move;
 import javafx.scene.image.Image;
 
 import java.io.FileInputStream;

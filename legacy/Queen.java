@@ -1,32 +1,36 @@
-package Piece;
+package legacy;
 
-import Main.Board;
-import Main.Move;
 
 import java.io.FileNotFoundException;
 import java.util.ArrayList;
 
-public class Rook extends Piece {
+public class Queen extends Piece {
+    private final String name = "Queen";
+
     private ArrayList <Move> moves = new ArrayList<>();
-    public Rook(int row, int col, Boolean isWhite, Board board) throws FileNotFoundException, FileNotFoundException {
-            super(row, col, isWhite,board);
-            calculateMoves();
+    public Queen(int row, int col, Boolean isWhite, Board board) throws FileNotFoundException {
+        super(row, col, isWhite,board);
+        calculateMoves();
+//
         if (!isWhite) {
-            this.image = getURL("/Users/tony/Documents/McGill/W2025/Chess/res/pieces-basic-png/black-rook.png");
+            this.image = getURL("/Users/tony/Documents/McGill/W2025/Chess/res/pieces-basic-png/black-queen.png");
         }else{
-            this.image = getURL("/Users/tony/Documents/McGill/W2025/Chess/res/pieces-basic-png/white-rook.png");
+            this.image = getURL("/Users/tony/Documents/McGill/W2025/Chess/res/pieces-basic-png/white-queen.png");
         }
-        System.out.println();
     }
-    public Rook(Rook r,Board board){
-        super (r,board);
+    public Queen(Queen originalQueen, Board board){
+       super (originalQueen, board);
+    }
+    public ArrayList<Move> getMoves() {
+        return moves;
     }
 
     @Override
-    public String getName() {
-        return "Rook";
+    public Queen DeepCopy(Board newBoard) {
+        return new Queen (this,newBoard);
     }
-    @Override
+
+    @ Override
     public boolean canMove(int TargetRow, int TargetCol) {
         for (Move move : moves) {
             if (move.getRow() == TargetRow && move.getCol() == TargetCol) {
@@ -35,19 +39,13 @@ public class Rook extends Piece {
         }
         return false;
     }
-    public ArrayList<Move> getMoves() {
-        return moves;
-    }
-
     @Override
-    public Rook DeepCopy(Board newBoard) {
-        return new Rook(this, newBoard);
+    public String getName() {
+        return name;
     }
-
-    @Override
     public void calculateMoves() {
         moves = new ArrayList<>();
-        int[][] directions = {{1, 0}, {-1, 0}, {0, 1}, {0, -1}};
+        int[][] directions = {{1, 0}, {-1, 0}, {0, 1}, {0, -1}, {1, 1}, {-1, -1}, {1, -1}, {-1, 1}};
         for (int[] direction : directions) {
             int newRow = this.getRow() + direction[0];
             int newCol = this.getCol() + direction[1];
@@ -65,6 +63,7 @@ public class Rook extends Piece {
                 newCol += direction[1];
             }
         }
-    }
 
+
+    }
 }
