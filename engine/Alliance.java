@@ -90,4 +90,12 @@ public enum Alliance {
     public abstract int getOppositeDirection();
     public abstract boolean isPawnPromotionSquare(int position);
     public abstract Alliance choosePlayerByAlliance(Alliance whitePlayer, Alliance blackPlayer);
+
+    public Alliance getOppositeAlliance() {
+        return this == WHITE ? BLACK : WHITE;
+    }
+
+    public Alliance getAlliance() {
+        return this;
+    }
 }
