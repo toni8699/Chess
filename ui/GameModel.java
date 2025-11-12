@@ -1,11 +1,9 @@
 package ui;
 
 import engine.board.Board;
-import engine.board.BoardUtils;
 import engine.board.FENParser;
 import engine.board.Move;
 import engine.board.MoveTransition;
-import engine.player.Player;
 import engine.pgn.PgnParser;
 import engine.pgn.SanGenerator;
 
@@ -22,12 +20,12 @@ public class GameModel {
 
     private Board currentBoard;
     private final Deque<Board> history;
-    private final List<String> moveHistory;
+    private final List<String> sanHistory;
 
     public GameModel() {
         this.currentBoard = Board.createStandardBoard();
         this.history = new ArrayDeque<>();
-        this.moveHistory = new ArrayList<>();
+        this.sanHistory = new ArrayList<>();
     }
 
     public Board getBoard() {
@@ -49,6 +47,7 @@ public class GameModel {
             return false;
         }
 
+        final String san = SanGenerator.generateSan(currentBoard, candidateMove.get());
         final MoveTransition transition = currentBoard.getCurrentPlayer().makeMove(candidateMove.get());
         if (!transition.getMoveStatus().isDone()) {
             return false;
@@ -56,7 +55,7 @@ public class GameModel {
 
         history.push(currentBoard);
         currentBoard = transition.getToBoard();
-        moveHistory.add(describeMove(candidateMove.get(), transition.getToBoard().getCurrentPlayer().getOpponent()));
+        sanHistory.add(san);
         return true;
     }
 
@@ -65,8 +64,8 @@ public class GameModel {
             return false;
         }
         currentBoard = history.pop();
-        if (!moveHistory.isEmpty()) {
-            moveHistory.remove(moveHistory.size() - 1);
+        if (!sanHistory.isEmpty()) {
+            sanHistory.remove(sanHistory.size() - 1);
         }
         return true;
     }
@@ -74,11 +73,24 @@ public class GameModel {
     public void reset() {
         currentBoard = Board.createStandardBoard();
         history.clear();
-        moveHistory.clear();
+        sanHistory.clear();
     }
 
     public List<String> getMoveHistory() {
-        return List.copyOf(moveHistory);
+        if (sanHistory.isEmpty()) {
+            return List.of();
+        }
+        final List<String> formatted = new ArrayList<>();
+        for (int i = 0; i < sanHistory.size(); i += 2) {
+            final int moveNumber = (i / 2) + 1;
+            final StringBuilder row = new StringBuilder();
+            row.append(moveNumber).append(". ").append(sanHistory.get(i));
+            if (i + 1 < sanHistory.size()) {
+                row.append(' ').append(sanHistory.get(i + 1));
+            }
+            formatted.add(row.toString());
+        }
+        return List.copyOf(formatted);
     }
 
     public boolean loadPositionFromFen(final String fen) {
@@ -88,7 +100,7 @@ public class GameModel {
         }
         currentBoard = parsed.get();
         history.clear();
-        moveHistory.clear();
+        sanHistory.clear();
         return true;
     }
 
@@ -100,49 +112,29 @@ public class GameModel {
 
         Board workingBoard = parsed.get().initialBoard();
         final Deque<Board> workingHistory = new ArrayDeque<>();
-        final List<String> workingMoveHistory = new ArrayList<>();
+        final List<String> workingSanHistory = new ArrayList<>();
 
         for (final String san : parsed.get().sanMoves()) {
             final Optional<Move> candidate = findMoveForSan(workingBoard, san);
             if (candidate.isEmpty()) {
                 return false;
             }
+            final String canonicalSan = SanGenerator.generateSan(workingBoard, candidate.get());
             workingHistory.push(workingBoard);
             final MoveTransition transition = workingBoard.getCurrentPlayer().makeMove(candidate.get());
             if (!transition.getMoveStatus().isDone()) {
                 return false;
             }
             workingBoard = transition.getToBoard();
-            workingMoveHistory.add(describeMove(candidate.get(), workingBoard.getCurrentPlayer().getOpponent()));
+            workingSanHistory.add(canonicalSan);
         }
 
         currentBoard = workingBoard;
         history.clear();
         history.addAll(workingHistory);
-        moveHistory.clear();
-        moveHistory.addAll(workingMoveHistory);
+        sanHistory.clear();
+        sanHistory.addAll(workingSanHistory);
         return true;
-    }
-
-    private String describeMove(final Move move, final Player movingPlayer) {
-        final String pieceSymbol = move.getMovedPiece().getPieceType().toString();
-        final String from = BoardUtils.INSTANCE.getPositionAtCoordinate(move.getMovedPiece().getPiecePosition());
-        final String to = BoardUtils.INSTANCE.getPositionAtCoordinate(move.getDestinationCoordinate());
-        final boolean capture = move.isAttack();
-        final boolean promotion = move instanceof Move.PawnPromotion;
-        final StringBuilder builder = new StringBuilder();
-        builder.append(movingPlayer.getAlliance().toString().charAt(0)).append(": ");
-        if (!pieceSymbol.equals("P")) {
-            builder.append(pieceSymbol);
-        }
-        builder.append(from);
-        builder.append(capture ? "x" : "-");
-        builder.append(to);
-        if (promotion) {
-            final Move.PawnPromotion promotionMove = (Move.PawnPromotion) move;
-            builder.append("=").append(promotionMove.getPromotionPiece().getPieceType().toString());
-        }
-        return builder.toString();
     }
 
     private Optional<Move> findMoveForSan(final Board board, final String san) {

@@ -4,6 +4,7 @@ import engine.Alliance;
 import engine.board.BoardUtils;
 import engine.board.Move;
 import engine.pieces.Piece;
+import engine.player.Player;
 import javafx.collections.FXCollections;
 import javafx.collections.ObservableList;
 import javafx.geometry.Pos;
@@ -26,6 +27,7 @@ import javafx.scene.layout.BorderPane;
 import javafx.scene.layout.Priority;
 import javafx.scene.layout.VBox;
 import javafx.scene.paint.Color;
+import javafx.scene.input.MouseEvent;
 
 import java.io.IOException;
 import java.io.InputStream;
@@ -33,7 +35,6 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.ArrayList;
-import java.util.Collection;
 import java.util.EnumMap;
 import java.util.List;
 import java.util.Map;
@@ -60,6 +61,17 @@ public class GamePanel extends BorderPane {
     private List<Move> highlightedMoves = List.of();
     private BoardColorScheme boardColorScheme = BoardColorScheme.CLASSIC;
 
+    private Piece draggingPiece;
+    private int draggingStartCoordinate = -1;
+    private double dragOffsetX;
+    private double dragOffsetY;
+    private double dragX;
+    private double dragY;
+    private boolean dragActive;
+    private boolean pressSelected;
+    private int pressCoordinate = -1;
+    private boolean pressWasSelected;
+
     public GamePanel(final GameModel model) {
         this.model = model;
         this.boardCanvas = new Canvas(BOARD_PIXELS, BOARD_PIXELS);
@@ -73,7 +85,9 @@ public class GamePanel extends BorderPane {
         setCenter(boardCanvas);
         setRight(rightColumn);
 
-        boardCanvas.setOnMouseClicked(event -> handleBoardClick(event.getX(), event.getY()));
+        boardCanvas.setOnMousePressed(this::handleMousePressed);
+        boardCanvas.setOnMouseDragged(this::handleMouseDragged);
+        boardCanvas.setOnMouseReleased(this::handleMouseReleased);
 
         refreshMoveHistory();
         updateStatusLabel();
@@ -235,6 +249,79 @@ public class GamePanel extends BorderPane {
         }
     }
 
+    private void handleMousePressed(final MouseEvent event) {
+        final int coordinate = screenToCoordinate(event.getX(), event.getY());
+        pressSelected = false;
+        pressCoordinate = coordinate;
+        pressWasSelected = coordinate != -1 && coordinate == selectedSquare;
+        dragActive = false;
+        draggingPiece = null;
+        draggingStartCoordinate = -1;
+
+        if (coordinate == -1) {
+            return;
+        }
+
+        final Optional<Piece> piece = model.getBoard().getPiece(coordinate);
+        if (piece.isPresent() && piece.get().getPieceAlliance() == model.getBoard().getCurrentPlayer().getAlliance()) {
+            selectSquare(coordinate);
+            pressSelected = true;
+            draggingPiece = piece.get();
+            draggingStartCoordinate = coordinate;
+            final double[] screen = coordinateToScreen(coordinate);
+            dragOffsetX = event.getX() - screen[0];
+            dragOffsetY = event.getY() - screen[1];
+        }
+    }
+
+    private void handleMouseDragged(final MouseEvent event) {
+        if (draggingPiece == null || draggingStartCoordinate == -1) {
+            return;
+        }
+        dragActive = true;
+        dragX = event.getX() - dragOffsetX;
+        dragY = event.getY() - dragOffsetY;
+        redraw();
+    }
+
+    private void handleMouseReleased(final MouseEvent event) {
+        if (!dragActive || draggingPiece == null || draggingStartCoordinate == -1) {
+            final int destination = screenToCoordinate(event.getX(), event.getY());
+            final boolean skipClick = pressSelected && !pressWasSelected
+                    && destination == pressCoordinate
+                    && destination == selectedSquare;
+            dragActive = false;
+            draggingPiece = null;
+            draggingStartCoordinate = -1;
+            pressSelected = false;
+            pressCoordinate = -1;
+            pressWasSelected = false;
+            if (!skipClick) {
+                handleBoardClick(event.getX(), event.getY());
+            }
+            return;
+        }
+
+        final int origin = draggingStartCoordinate;
+        final int destination = screenToCoordinate(event.getX(), event.getY());
+
+        dragActive = false;
+        draggingPiece = null;
+        draggingStartCoordinate = -1;
+        pressSelected = false;
+        pressCoordinate = -1;
+        pressWasSelected = false;
+
+        if (destination == -1) {
+            selectSquare(origin);
+            return;
+        }
+
+        if (!attemptMove(destination)) {
+            selectSquare(origin);
+        }
+    }
+
     private void handleBoardClick(final double x, final double y) {
         final int coordinate = screenToCoordinate(x, y);
         if (coordinate == -1) {
@@ -254,12 +341,7 @@ public class GamePanel extends BorderPane {
             return;
         }
 
-        if (attemptMove(coordinate)) {
-            clearSelection();
-            refreshMoveHistory();
-            updateStatusLabel();
-            redraw();
-        } else {
+        if (!attemptMove(coordinate)) {
             selectSquare(coordinate);
         }
     }
@@ -283,18 +365,29 @@ public class GamePanel extends BorderPane {
         if (!moved) {
             return false;
         }
+        clearSelection();
+        refreshMoveHistory();
+        updateStatusLabel();
+        redraw();
         return true;
     }
 
     private void clearSelection() {
         selectedSquare = -1;
         highlightedMoves = List.of();
+        dragActive = false;
+        draggingPiece = null;
+        draggingStartCoordinate = -1;
+        pressSelected = false;
+        pressCoordinate = -1;
+        pressWasSelected = false;
     }
 
     private void redraw() {
         drawBoardTiles();
         drawHighlights();
         drawPieces();
+        drawCheckIndicator();
     }
 
     private void drawBoardTiles() {
@@ -333,7 +426,25 @@ public class GamePanel extends BorderPane {
             }
             final Image image = getImageForPiece(piece.get());
             final double[] coords = coordinateToScreen(coordinate);
-            gc.drawImage(image, coords[0], coords[1], TILE_SIZE, TILE_SIZE);
+            final boolean isDraggedPiece = dragActive && draggingPiece != null && coordinate == draggingStartCoordinate;
+            if (!isDraggedPiece) {
+                gc.drawImage(image, coords[0], coords[1], TILE_SIZE, TILE_SIZE);
+            }
+        }
+
+        if (dragActive && draggingPiece != null) {
+            final Image image = getImageForPiece(draggingPiece);
+            gc.drawImage(image, dragX, dragY, TILE_SIZE, TILE_SIZE);
+        }
+    }
+
+    private void drawCheckIndicator() {
+        final Player currentPlayer = model.getBoard().getCurrentPlayer();
+        if (currentPlayer.isInCheck()) {
+            final int kingCoordinate = currentPlayer.getPlayerKing().getPiecePosition();
+            final double[] coords = coordinateToScreen(kingCoordinate);
+            gc.setFill(Color.color(1, 0, 0, 0.35));
+            gc.fillRect(coords[0], coords[1], TILE_SIZE, TILE_SIZE);
         }
     }
 

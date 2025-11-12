@@ -18,6 +18,7 @@ public abstract class Player {
     protected final Board board;
     protected final King playerKing;
     protected final Collection<Move> legalMoves;
+    protected final Collection<Move> kingCastles;
     private final boolean isInCheck;
 
     protected Player(final Board board,
@@ -25,8 +26,11 @@ public abstract class Player {
                      final Collection<Move> opponentMoves) {
         this.board = board;
         this.playerKing = establishKing();
-        this.legalMoves = Collections.unmodifiableCollection(legalMoves);
         this.isInCheck = !Player.calculateAttacksOnTile(this.playerKing.getPiecePosition(), opponentMoves).isEmpty();
+        this.kingCastles = Collections.unmodifiableCollection(calculateKingCastles(opponentMoves));
+        final List<Move> combinedMoves = new ArrayList<>(legalMoves);
+        combinedMoves.addAll(this.kingCastles);
+        this.legalMoves = Collections.unmodifiableCollection(combinedMoves);
     }
 
     private King establishKing() {
@@ -85,6 +89,10 @@ public abstract class Player {
         return legalMoves;
     }
 
+    public Collection<Move> getKingCastles() {
+        return kingCastles;
+    }
+
     public Board getBoard() {
         return board;
     }
@@ -94,6 +102,8 @@ public abstract class Player {
     public abstract Alliance getAlliance();
 
     public abstract Player getOpponent();
+
+    protected abstract Collection<Move> calculateKingCastles(Collection<Move> opponentMoves);
 
     protected static Collection<Move> calculateAttacksOnTile(final int tile,
                                                               final Collection<Move> moves) {
