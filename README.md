@@ -16,4 +16,8 @@ java --module-path /path/to/javafx-sdk/lib \
 
 Swap `Main.Main` with `legacy.LegacyMain` to launch the legacy demo.
 
-The immutable UI includes a **Load FEN** button so you can paste arbitrary positions (standard FEN strings) straight into the engine, and a **Load PGN** button to import a full game in PGN notation.
+The immutable UI includes:
+
+- **Load FEN** to paste arbitrary positions (standard FEN strings).
+- **Load PGN** to import a full game in PGN notation.
+- A promotion dialog so you can choose the piece (queen, rook, bishop, knight) whenever a pawn reaches the back rank.

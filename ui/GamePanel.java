@@ -5,8 +5,10 @@ import engine.board.BoardUtils;
 import engine.board.Move;
 import engine.pieces.Piece;
 import engine.player.Player;
+import engine.pieces.Piece.PieceType;
 import javafx.collections.FXCollections;
 import javafx.collections.ObservableList;
+import javafx.concurrent.Task;
 import javafx.geometry.Pos;
 import javafx.scene.canvas.Canvas;
 import javafx.scene.canvas.GraphicsContext;
@@ -23,11 +25,13 @@ import javafx.scene.control.Separator;
 import javafx.scene.control.TextArea;
 import javafx.scene.control.TextInputDialog;
 import javafx.scene.image.Image;
+import javafx.scene.image.ImageView;
+import javafx.scene.input.MouseEvent;
 import javafx.scene.layout.BorderPane;
+import javafx.scene.layout.FlowPane;
 import javafx.scene.layout.Priority;
 import javafx.scene.layout.VBox;
 import javafx.scene.paint.Color;
-import javafx.scene.input.MouseEvent;
 
 import java.io.IOException;
 import java.io.InputStream;
@@ -50,9 +54,15 @@ public class GamePanel extends BorderPane {
     private final Canvas boardCanvas;
     private final GraphicsContext gc;
     private final VBox rightColumn;
+    private final VBox leftColumn;
     private final ObservableList<String> moveHistoryData;
     private final ListView<String> moveHistoryView;
     private final Label statusLabel;
+    private FlowPane whiteCapturedPane;
+    private FlowPane blackCapturedPane;
+
+    private Alliance humanAlliance = Alliance.WHITE;
+    private boolean aiThinking;
 
     private final Map<Alliance, Map<Piece.PieceType, Image>> imageCache = new EnumMap<>(Alliance.class);
 
@@ -71,6 +81,7 @@ public class GamePanel extends BorderPane {
     private boolean pressSelected;
     private int pressCoordinate = -1;
     private boolean pressWasSelected;
+    private ComboBox<Integer> aiDepthSelector;
 
     public GamePanel(final GameModel model) {
         this.model = model;
@@ -80,10 +91,13 @@ public class GamePanel extends BorderPane {
         this.moveHistoryView = new ListView<>(moveHistoryData);
         this.statusLabel = new Label();
         this.rightColumn = buildRightColumn();
+        this.leftColumn = buildLeftColumn();
 
         initializePieceImages();
         setCenter(boardCanvas);
         setRight(rightColumn);
+        setLeft(leftColumn);
+
 
         boardCanvas.setOnMousePressed(this::handleMousePressed);
         boardCanvas.setOnMouseDragged(this::handleMouseDragged);
@@ -91,8 +105,41 @@ public class GamePanel extends BorderPane {
 
         refreshMoveHistory();
         updateStatusLabel();
+        updateCapturedDisplay();
         redraw();
     }
+    private VBox buildLeftColumn() {
+        final VBox box = new VBox(12);
+        box.setAlignment(Pos.TOP_CENTER);
+        box.setStyle("-fx-padding: 15; -fx-background-color: #f5f5f5;");
+
+        final Label infoHeader = new Label("Extra Info");
+        infoHeader.setStyle("-fx-font-weight: bold;");
+        final Separator headerSeparator = new Separator();
+        headerSeparator.setStyle("-fx-padding: 5 0 10 0;");
+
+        final Label capturedHeader = new Label("Captured Pieces");
+        capturedHeader.setStyle("-fx-font-weight: bold;");
+
+        final Label whiteLabel = new Label("Captured White");
+        whiteCapturedPane = createCapturedPane();
+
+        final Label blackLabel = new Label("Captured Black");
+        blackCapturedPane = createCapturedPane();
+
+        box.getChildren().addAll(
+                infoHeader,
+                headerSeparator,
+                capturedHeader,
+                whiteLabel,
+                whiteCapturedPane,
+                blackLabel,
+                blackCapturedPane
+        );
+
+        return box;
+    }
+
 
     private VBox buildRightColumn() {
         final VBox box = new VBox(10);
@@ -103,6 +150,7 @@ public class GamePanel extends BorderPane {
 
         final Separator separator = new Separator();
         separator.setStyle("-fx-padding: 10 0 10 0;");
+        
         box.getChildren().add(separator);
 
         final Label colorLabel = new Label("Board Colors");
@@ -126,9 +174,24 @@ public class GamePanel extends BorderPane {
         loadPgnButton.setOnAction(e -> showPgnDialog());
         box.getChildren().addAll(loadFenButton, loadPgnButton);
 
-        final Separator separatorHistory = new Separator();
-        separatorHistory.setStyle("-fx-padding: 10 0 10 0;");
-        box.getChildren().add(separatorHistory);
+        final Label aiLabel = new Label("AI Difficulty (Depth)");
+        aiLabel.setStyle("-fx-font-weight: bold;");
+        aiDepthSelector = new ComboBox<>(FXCollections.observableArrayList(1, 2, 3, 4, 5));
+        aiDepthSelector.setValue(model.getAiDepth());
+        aiDepthSelector.setMaxWidth(Double.MAX_VALUE);
+        aiDepthSelector.valueProperty().addListener((obs, oldVal, newVal) -> {
+            if (newVal != null) {
+                model.setAiDepth(newVal);
+            }
+        });
+        final Button showTopMovesButton = new Button("Show Top Moves");
+        showTopMovesButton.setMaxWidth(Double.MAX_VALUE);
+        showTopMovesButton.setOnAction(e -> showTopMoves());
+        box.getChildren().addAll(aiLabel, aiDepthSelector, showTopMovesButton);
+
+        final Separator historySeparator = new Separator();
+        historySeparator.setStyle("-fx-padding: 10 0 10 0;");
+        box.getChildren().add(historySeparator);
 
         final Label historyLabel = new Label("Move History");
         historyLabel.setStyle("-fx-font-weight: bold;");
@@ -138,21 +201,33 @@ public class GamePanel extends BorderPane {
         box.getChildren().add(moveHistoryView);
         VBox.setVgrow(moveHistoryView, Priority.NEVER);
 
-        final Separator separator2 = new Separator();
-        separator2.setStyle("-fx-padding: 10 0 10 0;");
-        box.getChildren().add(separator2);
+        final Separator separatorButtons = new Separator();
+        separatorButtons.setStyle("-fx-padding: 10 0 10 0;");
+        box.getChildren().add(separatorButtons);
 
         final Button setupButton = new Button("Setup");
         setupButton.setMaxWidth(Double.MAX_VALUE);
-        setupButton.setOnAction(e -> showSetupDialog());
+        setupButton.setOnAction(e -> {
+            if (aiThinking) {
+                return;
+            }
+            showSetupDialog();
+        });
 
         final Button undoButton = new Button("Undo");
         undoButton.setMaxWidth(Double.MAX_VALUE);
         undoButton.setOnAction(e -> {
+            if (aiThinking) {
+                return;
+            }
             if (model.undo()) {
+                while (model.getBoard().getCurrentPlayer().getAlliance() != humanAlliance && model.undo()) {
+                    // continue undoing until it's the human's turn or history is exhausted
+                }
                 clearSelection();
                 refreshMoveHistory();
                 updateStatusLabel();
+                updateCapturedDisplay();
                 redraw();
             }
         });
@@ -160,30 +235,57 @@ public class GamePanel extends BorderPane {
         final Button restartButton = new Button("Restart");
         restartButton.setMaxWidth(Double.MAX_VALUE);
         restartButton.setOnAction(e -> {
+            if (aiThinking) {
+                return;
+            }
             model.reset();
             clearSelection();
+            setBoardFlipped(humanAlliance.isBlack());
             refreshMoveHistory();
             updateStatusLabel();
+            updateCapturedDisplay();
             redraw();
+            maybeRunAiMove();
         });
 
         box.getChildren().addAll(setupButton, undoButton, restartButton);
         return box;
     }
 
+    private FlowPane createCapturedPane() {
+        final FlowPane pane = new FlowPane();
+        pane.setHgap(6);
+        pane.setVgap(6);
+        pane.setAlignment(Pos.CENTER);
+        pane.setPrefWrapLength(120);
+        return pane;
+    }
+
     private void showSetupDialog() {
+        if (aiThinking) {
+            return;
+        }
         final ChoiceDialog<String> dialog = new ChoiceDialog<>("White", List.of("White", "Black"));
         dialog.setTitle("Game Setup");
         dialog.setHeaderText(null);
         dialog.setContentText("Play as:");
         dialog.showAndWait().ifPresent(choice -> {
-            setBoardFlipped("Black".equalsIgnoreCase(choice));
+            final boolean playAsBlack = "Black".equalsIgnoreCase(choice);
+            humanAlliance = playAsBlack ? Alliance.BLACK : Alliance.WHITE;
+            setBoardFlipped(playAsBlack);
             clearSelection();
+            refreshMoveHistory();
+            updateStatusLabel();
+            updateCapturedDisplay();
             redraw();
+            maybeRunAiMove();
         });
     }
 
     private void showFenDialog() {
+        if (aiThinking) {
+            return;
+        }
         final TextInputDialog dialog = new TextInputDialog(STARTING_FEN);
         dialog.setTitle("Load FEN");
         dialog.setHeaderText("Paste a FEN position");
@@ -201,15 +303,20 @@ public class GamePanel extends BorderPane {
                 alert.showAndWait();
                 return;
             }
-            setBoardFlipped(model.getBoard().getCurrentPlayer().getAlliance().isBlack());
+            setBoardFlipped(humanAlliance.isBlack());
             clearSelection();
             refreshMoveHistory();
             updateStatusLabel();
+            updateCapturedDisplay();
             redraw();
+            maybeRunAiMove();
         });
     }
 
     private void showPgnDialog() {
+        if (aiThinking) {
+            return;
+        }
         final Dialog<String> dialog = new Dialog<>();
         dialog.setTitle("Load PGN");
         dialog.setHeaderText("Paste a PGN game");
@@ -235,11 +342,13 @@ public class GamePanel extends BorderPane {
                 alert.showAndWait();
                 return;
             }
-            setBoardFlipped(model.getBoard().getCurrentPlayer().getAlliance().isBlack());
+            setBoardFlipped(humanAlliance.isBlack());
             clearSelection();
             refreshMoveHistory();
             updateStatusLabel();
+            updateCapturedDisplay();
             redraw();
+            maybeRunAiMove();
         });
     }
 
@@ -250,13 +359,16 @@ public class GamePanel extends BorderPane {
     }
 
     private void handleMousePressed(final MouseEvent event) {
+        if (aiThinking) {
+            return;
+        }
         final int coordinate = screenToCoordinate(event.getX(), event.getY());
         pressSelected = false;
         pressCoordinate = coordinate;
-        pressWasSelected = coordinate != -1 && coordinate == selectedSquare;
         dragActive = false;
         draggingPiece = null;
         draggingStartCoordinate = -1;
+        pressWasSelected = selectedSquare == coordinate;
 
         if (coordinate == -1) {
             return;
@@ -275,6 +387,9 @@ public class GamePanel extends BorderPane {
     }
 
     private void handleMouseDragged(final MouseEvent event) {
+        if (aiThinking) {
+            return;
+        }
         if (draggingPiece == null || draggingStartCoordinate == -1) {
             return;
         }
@@ -285,6 +400,9 @@ public class GamePanel extends BorderPane {
     }
 
     private void handleMouseReleased(final MouseEvent event) {
+        if (aiThinking) {
+            return;
+        }
         if (!dragActive || draggingPiece == null || draggingStartCoordinate == -1) {
             final int destination = screenToCoordinate(event.getX(), event.getY());
             final boolean skipClick = pressSelected && !pressWasSelected
@@ -323,6 +441,9 @@ public class GamePanel extends BorderPane {
     }
 
     private void handleBoardClick(final double x, final double y) {
+        if (aiThinking) {
+            return;
+        }
         final int coordinate = screenToCoordinate(x, y);
         if (coordinate == -1) {
             clearSelection();
@@ -358,17 +479,24 @@ public class GamePanel extends BorderPane {
     }
 
     private boolean attemptMove(final int destinationCoordinate) {
+        if (aiThinking) {
+            return false;
+        }
         if (selectedSquare == -1) {
             return false;
         }
-        final boolean moved = model.makeMove(selectedSquare, destinationCoordinate);
-        if (!moved) {
+        GameModel.MoveAttemptResult result = model.makeMove(selectedSquare, destinationCoordinate);
+        if (result.status() == GameModel.MoveAttemptStatus.PROMOTION_REQUIRED) {
+            final PieceType choice = promptPromotion(result.promotionOptions());
+            if (choice == null) {
+                return false;
+            }
+            result = model.makeMove(selectedSquare, destinationCoordinate, choice);
+        }
+        if (result.status() != GameModel.MoveAttemptStatus.DONE) {
             return false;
         }
-        clearSelection();
-        refreshMoveHistory();
-        updateStatusLabel();
-        redraw();
+        handleSuccessfulMove();
         return true;
     }
 
@@ -381,6 +509,159 @@ public class GamePanel extends BorderPane {
         pressSelected = false;
         pressCoordinate = -1;
         pressWasSelected = false;
+    }
+
+    private void handleSuccessfulMove() {
+        clearSelection();
+        refreshMoveHistory();
+        updateStatusLabel();
+        updateCapturedDisplay();
+        redraw();
+        maybeRunAiMove();
+    }
+
+    private void maybeRunAiMove() {
+        if (aiThinking) {
+            return;
+        }
+        final Player currentPlayer = model.getBoard().getCurrentPlayer();
+        if (currentPlayer.getAlliance() == humanAlliance) {
+            return;
+        }
+        if (currentPlayer.isInCheckMate() || currentPlayer.isInStaleMate() || currentPlayer.getLegalMoves().isEmpty()) {
+            return;
+        }
+
+        aiThinking = true;
+        boardCanvas.setDisable(true);
+        rightColumn.setDisable(true);
+        leftColumn.setDisable(true);
+        statusLabel.setText(currentPlayer.getAlliance() + " (AI) thinking...");
+
+        final Task<GameModel.ScoredMove> task = new Task<>() {
+            @Override
+            protected GameModel.ScoredMove call() {
+                final List<GameModel.ScoredMove> moves = model.getBestMoves(1);
+                if (moves.isEmpty()) {
+                    return null;
+                }
+                return moves.get(0);
+            }
+        };
+
+        task.setOnSucceeded(event -> {
+            aiThinking = false;
+            boardCanvas.setDisable(false);
+            rightColumn.setDisable(false);
+            leftColumn.setDisable(false);
+            final GameModel.ScoredMove scoredMove = task.getValue();
+            if (scoredMove != null) {
+                executeAiMove(scoredMove.move());
+            } else {
+                updateStatusLabel();
+                redraw();
+            }
+        });
+
+        task.setOnFailed(event -> {
+            aiThinking = false;
+            boardCanvas.setDisable(false);
+            rightColumn.setDisable(false);
+            leftColumn.setDisable(false);
+            updateStatusLabel();
+            updateCapturedDisplay();
+            redraw();
+            final Throwable exception = task.getException();
+            if (exception != null) {
+                exception.printStackTrace();
+            }
+        });
+
+        final Thread thread = new Thread(task, "ai-move-worker");
+        thread.setDaemon(true);
+        thread.start();
+    }
+
+    private void executeAiMove(final Move move) {
+        if (move == null) {
+            updateStatusLabel();
+            updateCapturedDisplay();
+            redraw();
+            return;
+        }
+        final GameModel.MoveAttemptResult result = model.makeMove(move);
+        if (result.status() == GameModel.MoveAttemptStatus.DONE) {
+            handleSuccessfulMove();
+        } else {
+            updateStatusLabel();
+            updateCapturedDisplay();
+            redraw();
+        }
+    }
+
+    private void showTopMoves() {
+        if (aiThinking) {
+            return;
+        }
+        final List<GameModel.ScoredMove> moves = model.getBestMoves(3);
+        final Alert alert = new Alert(Alert.AlertType.INFORMATION);
+        alert.setTitle("AI Suggestions");
+        alert.setHeaderText("Top moves for " + model.getBoard().getCurrentPlayer().getAlliance());
+        if (moves.isEmpty()) {
+            alert.setContentText("No legal moves available.");
+        } else {
+            final StringBuilder builder = new StringBuilder();
+            for (int i = 0; i < moves.size(); i++) {
+                final GameModel.ScoredMove move = moves.get(i);
+                builder.append(i + 1).append(". ").append(move.san());
+                builder.append(" (").append(formatScore(move.score())).append(")");
+                if (i + 1 < moves.size()) {
+                    builder.append('\n');
+                }
+            }
+            alert.setContentText(builder.toString());
+        }
+        alert.showAndWait();
+    }
+
+    private String formatScore(final int score) {
+        if (Math.abs(score) >= 90_000) {
+            return score > 0 ? "#+" : "#-";
+        }
+        return String.format("%+.2f", score / 100.0);
+    }
+
+    private PieceType promptPromotion(final List<PieceType> options) {
+        if (options == null || options.isEmpty()) {
+            return null;
+        }
+        final List<PieceType> choices = new ArrayList<>(options);
+        final List<String> labels = choices.stream()
+                .map(this::promotionLabel)
+                .toList();
+        final ChoiceDialog<String> dialog = new ChoiceDialog<>(labels.get(0), labels);
+        dialog.setTitle("Pawn Promotion");
+        dialog.setHeaderText("Choose promotion piece");
+        dialog.setContentText("Promote to:");
+        final Optional<String> selection = dialog.showAndWait();
+        if (selection.isEmpty()) {
+            return null;
+        }
+        final int index = labels.indexOf(selection.get());
+        if (index < 0 || index >= choices.size()) {
+            return null;
+        }
+        return choices.get(index);
+    }
+
+    private String promotionLabel(final PieceType type) {
+        return switch (type) {
+            case QUEEN -> "Queen";
+            case ROOK -> "Rook";
+            case BISHOP -> "Bishop";
+            case KNIGHT -> "Knight";
+            default -> type.toString();
+        };
     }
 
     private void redraw() {
@@ -466,6 +747,32 @@ public class GamePanel extends BorderPane {
         statusLabel.setText(status.toString());
     }
 
+    private void updateCapturedDisplay() {
+        if (whiteCapturedPane == null || blackCapturedPane == null) {
+            return;
+        }
+        final GameModel.CapturedPieces captured = model.getCapturedPieces();
+        populateCapturedPane(whiteCapturedPane, captured.whiteCaptured(), Alliance.WHITE);
+        populateCapturedPane(blackCapturedPane, captured.blackCaptured(), Alliance.BLACK);
+    }
+
+    private void populateCapturedPane(final FlowPane pane,
+                                      final List<PieceType> capturedPieces,
+                                      final Alliance alliance) {
+        pane.getChildren().clear();
+        if (capturedPieces == null || capturedPieces.isEmpty()) {
+            return;
+        }
+        for (final PieceType type : capturedPieces) {
+            final Image image = getImageForPiece(alliance, type);
+            final ImageView view = new ImageView(image);
+            view.setFitWidth(36);
+            view.setFitHeight(36);
+            view.setPreserveRatio(true);
+            pane.getChildren().add(view);
+        }
+    }
+
     private double tileToScreenCol(final int boardCol) {
         final int col = boardFlipped ? BoardUtils.NUM_TILES_PER_ROW - 1 - boardCol : boardCol;
         return col * TILE_SIZE;
@@ -497,10 +804,14 @@ public class GamePanel extends BorderPane {
     }
 
     private Image getImageForPiece(final Piece piece) {
+        return getImageForPiece(piece.getPieceAlliance(), piece.getPieceType());
+    }
+
+    private Image getImageForPiece(final Alliance alliance, final Piece.PieceType pieceType) {
         final Map<Piece.PieceType, Image> cacheForAlliance = imageCache.computeIfAbsent(
-                piece.getPieceAlliance(),
-                alliance -> new EnumMap<>(Piece.PieceType.class));
-        return cacheForAlliance.computeIfAbsent(piece.getPieceType(), type -> loadImage(piece.getPieceAlliance(), type));
+                alliance,
+                key -> new EnumMap<>(Piece.PieceType.class));
+        return cacheForAlliance.computeIfAbsent(pieceType, type -> loadImage(alliance, type));
     }
 
     private Image loadImage(final Alliance alliance, final Piece.PieceType pieceType) {

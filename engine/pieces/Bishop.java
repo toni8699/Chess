@@ -24,13 +24,13 @@ public class Bishop extends Piece {
         final List<Move> legalMoves = new ArrayList<>();
         for (final int candidateCoordinateOffset : CANDIDATE_MOVE_VECTOR_COORDINATES) {
             int candidateDestination = this.piecePosition;
-            while (BoardUtils.isValidTileCoordinate(candidateDestination)) {
-                candidateDestination += candidateCoordinateOffset;
-                if (!BoardUtils.isValidTileCoordinate(candidateDestination)) {
-                    break;
-                }
+            while (true) {
                 if (isFirstColumnExclusion(candidateDestination, candidateCoordinateOffset) ||
                     isEighthColumnExclusion(candidateDestination, candidateCoordinateOffset)) {
+                    break;
+                }
+                candidateDestination += candidateCoordinateOffset;
+                if (!BoardUtils.isValidTileCoordinate(candidateDestination)) {
                     break;
                 }
                 final var pieceAtDestination = board.getPiece(candidateDestination);

@@ -59,7 +59,7 @@ public class Pawn extends Piece {
                              final List<Move> legalMoves,
                              final int destination) {
         if (this.pieceAlliance.isPawnPromotionSquare(destination)) {
-            legalMoves.add(new PawnPromotion(new PawnMove(board, this, destination), getPromotionPiece(destination)));
+            addPromotionMoves(board, legalMoves, new PawnMove(board, this, destination));
         } else {
             legalMoves.add(new PawnMove(board, this, destination));
         }
@@ -72,7 +72,8 @@ public class Pawn extends Piece {
         pieceOnCandidate.ifPresent(opponentPiece -> {
             if (opponentPiece.getPieceAlliance() != this.pieceAlliance) {
                 if (this.pieceAlliance.isPawnPromotionSquare(destination)) {
-                    legalMoves.add(new PawnPromotion(new PawnAttackMove(board, this, destination, opponentPiece), getPromotionPiece(destination)));
+                    addPromotionMoves(board, legalMoves,
+                            new PawnAttackMove(board, this, destination, opponentPiece));
                 } else {
                     legalMoves.add(new PawnAttackMove(board, this, destination, opponentPiece));
                 }
@@ -86,10 +87,6 @@ public class Pawn extends Piece {
         });
     }
 
-    private Piece getPromotionPiece(final int destination) {
-        return new Queen(this.pieceAlliance, destination, false);
-    }
-
     public boolean hasMovedTwoSquares(final Move move) {
         return Math.abs(move.getDestinationCoordinate() - this.piecePosition) == 16;
     }
@@ -97,5 +94,15 @@ public class Pawn extends Piece {
     @Override
     public Pawn movePiece(final Move move) {
         return new Pawn(move.getMovedPiece().getPieceAlliance(), move.getDestinationCoordinate(), false);
+    }
+
+    private void addPromotionMoves(final Board board,
+                                   final List<Move> legalMoves,
+                                   final Move decoratedMove) {
+        final int destination = decoratedMove.getDestinationCoordinate();
+        legalMoves.add(new PawnPromotion(decoratedMove, new Queen(this.pieceAlliance, destination, false)));
+        legalMoves.add(new PawnPromotion(decoratedMove, new Rook(this.pieceAlliance, destination, false)));
+        legalMoves.add(new PawnPromotion(decoratedMove, new Bishop(this.pieceAlliance, destination, false)));
+        legalMoves.add(new PawnPromotion(decoratedMove, new Knight(this.pieceAlliance, destination, false)));
     }
 }

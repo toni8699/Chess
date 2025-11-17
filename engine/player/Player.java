@@ -27,10 +27,11 @@ public abstract class Player {
         this.board = board;
         this.playerKing = establishKing();
         this.isInCheck = !Player.calculateAttacksOnTile(this.playerKing.getPiecePosition(), opponentMoves).isEmpty();
-        this.kingCastles = Collections.unmodifiableCollection(calculateKingCastles(opponentMoves));
-        final List<Move> combinedMoves = new ArrayList<>(legalMoves);
-        combinedMoves.addAll(this.kingCastles);
-        this.legalMoves = Collections.unmodifiableCollection(combinedMoves);
+        final List<Move> legalMoveList = new ArrayList<>(legalMoves);
+        final List<Move> castleMoves = new ArrayList<>(calculateKingCastles(opponentMoves));
+        legalMoveList.addAll(castleMoves);
+        this.legalMoves = Collections.unmodifiableCollection(legalMoveList);
+        this.kingCastles = Collections.unmodifiableCollection(castleMoves);
     }
 
     private King establishKing() {
@@ -115,4 +116,5 @@ public abstract class Player {
         }
         return attackMoves;
     }
+
 }
