@@ -1,5 +1,6 @@
 package ui;
 
+import engine.Alliance;
 import engine.ai.BoardEvaluator;
 import engine.ai.MiniMax;
 import engine.ai.MoveScore;
@@ -11,6 +12,7 @@ import engine.board.MoveTransition;
 import engine.pieces.Piece;
 import engine.pgn.PgnParser;
 import engine.pgn.SanGenerator;
+import engine.opening.OpeningBook;
 
 import java.util.ArrayDeque;
 import java.util.ArrayList;
@@ -21,23 +23,37 @@ import java.util.Locale;
 import java.util.Optional;
 import java.util.stream.Collectors;
 
+/**
+ * Bridge between the immutable engine core and presentation layer.
+ * Holds the current board snapshot, history stacks, SAN log, and delegates AI queries.
+ */
 public class GameModel {
 
     private Board currentBoard;
+    // Time-travel stack for undo operations
     private final Deque<Board> history;
+    // Move log stored as SAN strings
     private final List<String> sanHistory;
     private final BoardEvaluator boardEvaluator;
     private int aiDepth = 3;
+    // Captured piece tracking mirrors the board history 
     private final List<Piece.PieceType> capturedWhite = new ArrayList<>();
     private final List<Piece.PieceType> capturedBlack = new ArrayList<>();
     private final Deque<List<Piece.PieceType>> capturedWhiteHistory = new ArrayDeque<>();
     private final Deque<List<Piece.PieceType>> capturedBlackHistory = new ArrayDeque<>();
+    private final OpeningBook openingBook;
+    private OpeningBook.PathTracker openingTracker;
+    private Alliance initialSideToMove;
 
     public GameModel() {
         this.currentBoard = Board.createStandardBoard();
         this.history = new ArrayDeque<>();
         this.sanHistory = new ArrayList<>();
+        // Simple material/positional evaluator for the first AI pass
         this.boardEvaluator = new SimpleBoardEvaluator();
+        this.openingBook = OpeningBook.getInstance();
+        this.initialSideToMove = currentBoard.getCurrentPlayer().getAlliance();
+        this.openingTracker = openingBook.newTracker(initialSideToMove);
     }
 
     public Board getBoard() {
@@ -101,7 +117,10 @@ public class GameModel {
         final Board previousBoard = currentBoard;
         history.push(previousBoard);
         currentBoard = transition.getToBoard();
-        sanHistory.add(SanGenerator.generateSan(previousBoard, moveToExecute));
+        // Record SAN using the pre-move board for proper annotations
+        final String san = SanGenerator.generateSan(previousBoard, moveToExecute);
+        sanHistory.add(san);
+        recordOpeningMove(san);
         updateCapturedPieces(moveToExecute, capturedWhite, capturedBlack);
         return MoveAttemptResult.done();
     }
@@ -128,6 +147,7 @@ public class GameModel {
         if (!sanHistory.isEmpty()) {
             sanHistory.remove(sanHistory.size() - 1);
         }
+        rebuildOpeningTracker();
         return true;
     }
 
@@ -143,6 +163,8 @@ public class GameModel {
         capturedBlack.clear();
         capturedWhiteHistory.clear();
         capturedBlackHistory.clear();
+        initialSideToMove = currentBoard.getCurrentPlayer().getAlliance();
+        rebuildOpeningTracker();
     }
 
     public List<String> getMoveHistory() {
@@ -174,6 +196,8 @@ public class GameModel {
         capturedBlack.clear();
         capturedWhiteHistory.clear();
         capturedBlackHistory.clear();
+        initialSideToMove = currentBoard.getCurrentPlayer().getAlliance();
+        rebuildOpeningTracker();
         return true;
     }
 
@@ -222,6 +246,8 @@ public class GameModel {
         capturedWhiteHistory.addAll(tempCapturedWhiteHistory);
         capturedBlackHistory.clear();
         capturedBlackHistory.addAll(tempCapturedBlackHistory);
+        initialSideToMove = parsed.get().initialBoard().getCurrentPlayer().getAlliance();
+        rebuildOpeningTracker();
         return true;
     }
 
@@ -252,9 +278,32 @@ public class GameModel {
         return aiDepth;
     }
 
+    /**
+     * Returns the strongest opening-book recommendation for the current player, if the position
+     * is still inside the cached database. Once the actual move list diverges from the book,
+     * this method falls back to {@link Optional#empty()}.
+     */
+    public Optional<ScoredMove> getBookMove() {
+        if (openingTracker == null || !openingTracker.isInBook()) {
+            return Optional.empty();
+        }
+        final Optional<OpeningBook.OpeningSuggestion> suggestionOpt = openingTracker.bestSuggestion();
+        if (suggestionOpt.isEmpty()) {
+            return Optional.empty();
+        }
+        final OpeningBook.OpeningSuggestion suggestion = suggestionOpt.get();
+        final Optional<Move> move = findMoveForSan(currentBoard, suggestion.san());
+        if (move.isEmpty()) {
+            return Optional.empty();
+        }
+        final int centipawnScore = (int) Math.round((suggestion.stats().expectedScore() - 0.5) * 1000);
+        return Optional.of(new ScoredMove(suggestion.san(), centipawnScore, move.get()));
+    }
+
     public List<ScoredMove> getBestMoves(final int maxMoves) {
         final MiniMax miniMax = new MiniMax(boardEvaluator);
         final List<MoveScore> scores = miniMax.getBestMoves(currentBoard, aiDepth, maxMoves);
+        // Pair SAN strings with minimax scores for UI consumption
         final List<ScoredMove> result = scores.stream()
                 .map(moveScore -> {
                     final String san = SanGenerator.generateSan(currentBoard, moveScore.move());
@@ -286,6 +335,38 @@ public class GameModel {
 
     public record CapturedPieces(List<Piece.PieceType> whiteCaptured,
                                  List<Piece.PieceType> blackCaptured) {
+    }
+
+    /**
+     * Advances the cached book tracker with the SAN generated for an executed move.
+     * If the move is not contained in the database, the tracker is invalidated until a reset.
+     */
+    private void recordOpeningMove(final String san) {
+        if (openingTracker != null) {
+            openingTracker.recordSan(san);
+        }
+    }
+
+    /**
+     * Recreates the book tracker from the current SAN history and initial side to move.
+     * This should be invoked after any operation that rewrites the move log
+     * (e.g., undo, reset, loading from FEN/PGN).
+     */
+    private void rebuildOpeningTracker() {
+        if (openingBook == null) {
+            openingTracker = null;
+            return;
+        }
+        if (initialSideToMove == null) {
+            initialSideToMove = currentBoard.getCurrentPlayer().getAlliance();
+        }
+        openingTracker = openingBook.newTracker(initialSideToMove);
+        if (sanHistory.isEmpty()) {
+            return;
+        }
+        for (final String san : sanHistory) {
+            openingTracker.recordSan(san);
+        }
     }
 
     private void restoreCapturedHistory() {

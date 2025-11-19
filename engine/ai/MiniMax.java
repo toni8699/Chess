@@ -7,6 +7,7 @@ import engine.board.MoveTransition;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
+import java.util.concurrent.ThreadLocalRandom;
 
 public class MiniMax {
 
@@ -23,7 +24,12 @@ public class MiniMax {
         final boolean maximizing = board.getCurrentPlayer().getAlliance().isWhite();
         final int perspective = maximizing ? 1 : -1;
         final List<MoveScore> scoredMoves = new ArrayList<>();
-        for (final Move move : board.getCurrentPlayer().getLegalMoves()) {
+        final List<Move> legalMoves = board.getCurrentPlayer().getLegalMoves();
+        if (legalMoves.isEmpty()) {
+            return Collections.emptyList();
+        }
+        Collections.shuffle(legalMoves, ThreadLocalRandom.current());
+        for (final Move move : legalMoves) {
             final MoveTransition transition = board.getCurrentPlayer().makeMove(move);
             if (!transition.getMoveStatus().isDone()) {
                 continue;
