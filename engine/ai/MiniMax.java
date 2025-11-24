@@ -24,7 +24,7 @@ public class MiniMax {
         final boolean maximizing = board.getCurrentPlayer().getAlliance().isWhite();
         final int perspective = maximizing ? 1 : -1;
         final List<MoveScore> scoredMoves = new ArrayList<>();
-        final List<Move> legalMoves = board.getCurrentPlayer().getLegalMoves();
+        final List<Move> legalMoves = new ArrayList<>(board.getCurrentPlayer().getLegalMoves());
         if (legalMoves.isEmpty()) {
             return Collections.emptyList();
         }

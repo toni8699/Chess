@@ -33,17 +33,24 @@ import javafx.scene.layout.FlowPane;
 import javafx.scene.layout.Priority;
 import javafx.scene.layout.VBox;
 import javafx.scene.paint.Color;
-
 import java.io.IOException;
 import java.io.InputStream;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
+import java.net.URL;
 import java.util.ArrayList;
 import java.util.EnumMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.logging.Logger;
+import java.util.logging.Level;
+import javax.sound.sampled.AudioInputStream;
+import javax.sound.sampled.AudioSystem;
+import javax.sound.sampled.Clip;
+import javax.sound.sampled.LineUnavailableException;
+import javax.sound.sampled.UnsupportedAudioFileException;
 
 /**
  * JavaFX front-end that renders the immutable engine state and mediates
@@ -56,6 +63,7 @@ public class GamePanel extends BorderPane {
     private static final int BOARD_PIXELS = TILE_SIZE * BoardUtils.NUM_TILES_PER_ROW;
     private static final long MOVE_ANIMATION_DURATION_NANOS = 180_000_000L; // ~180 ms travel time
     private static final String STARTING_FEN = "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq -";
+    private static final Logger LOGGER = Logger.getLogger(GamePanel.class.getName());
 
     // Adapter between immutable engine and JavaFX view
     private final GameModel model;
@@ -69,6 +77,11 @@ public class GamePanel extends BorderPane {
     private final AnimationTimer animationTimer;
     private FlowPane whiteCapturedPane;
     private FlowPane blackCapturedPane;
+
+    private final Clip moveClip;
+    private final Clip captureClip;
+    private final Clip errorClip;
+    private final Clip gameOverClip;
 
     // Tracks which alliance is controlled by the human and whether the AI is mid-search.
     private Alliance humanAlliance = Alliance.WHITE;
@@ -103,9 +116,14 @@ public class GamePanel extends BorderPane {
     private int pressCoordinate = -1;
     private boolean pressWasSelected;
     private ComboBox<Integer> aiDepthSelector;
+    private boolean gameOver;
 
     public GamePanel(final GameModel model) {
         this.model = model;
+        this.moveClip = loadClip("/res/sound/Move.wav");
+        this.captureClip = loadClip("/res/sound/capture.wav");
+        this.errorClip = loadClip("/res/sound/Error.wav");
+        this.gameOverClip = loadClip("/res/sound/gameover.wav");
         this.boardCanvas = new Canvas(BOARD_PIXELS, BOARD_PIXELS);
         this.gc = boardCanvas.getGraphicsContext2D();
         this.moveHistoryData = FXCollections.observableArrayList();
@@ -132,6 +150,7 @@ public class GamePanel extends BorderPane {
         setCenter(boardCanvas);
         setRight(rightColumn);
         setLeft(leftColumn);
+        resetGameState();
 
 
         boardCanvas.setOnMousePressed(this::handleMousePressed);
@@ -262,6 +281,7 @@ public class GamePanel extends BorderPane {
                 while (model.getBoard().getCurrentPlayer().getAlliance() != humanAlliance && model.undo()) {
                     // continue undoing until it's the human's turn or history is exhausted
                 }
+                resetGameState();
                 clearSelection();
                 refreshMoveHistory();
                 updateStatusLabel();
@@ -277,6 +297,7 @@ public class GamePanel extends BorderPane {
                 return;
             }
             model.reset();
+            resetGameState();
             clearSelection();
             setBoardFlipped(humanAlliance.isBlack());
             refreshMoveHistory();
@@ -300,7 +321,7 @@ public class GamePanel extends BorderPane {
     }
 
     private void showSetupDialog() {
-        if (aiThinking || animatingMove) {
+        if (aiThinking || animatingMove || gameOver) {
             return;
         }
         final ChoiceDialog<String> dialog = new ChoiceDialog<>("White", List.of("White", "Black"));
@@ -311,6 +332,7 @@ public class GamePanel extends BorderPane {
             final boolean playAsBlack = "Black".equalsIgnoreCase(choice);
             humanAlliance = playAsBlack ? Alliance.BLACK : Alliance.WHITE;
             setBoardFlipped(playAsBlack);
+            resetGameState();
             clearSelection();
             refreshMoveHistory();
             updateStatusLabel();
@@ -321,7 +343,7 @@ public class GamePanel extends BorderPane {
     }
 
     private void showFenDialog() {
-        if (aiThinking || animatingMove) {
+        if (aiThinking || animatingMove || gameOver) {
             return;
         }
         final TextInputDialog dialog = new TextInputDialog(STARTING_FEN);
@@ -342,6 +364,7 @@ public class GamePanel extends BorderPane {
                 return;
             }
             setBoardFlipped(humanAlliance.isBlack());
+            resetGameState();
             clearSelection();
             refreshMoveHistory();
             updateStatusLabel();
@@ -352,7 +375,7 @@ public class GamePanel extends BorderPane {
     }
 
     private void showPgnDialog() {
-        if (aiThinking || animatingMove) {
+        if (aiThinking || animatingMove || gameOver) {
             return;
         }
         final Dialog<String> dialog = new Dialog<>();
@@ -381,6 +404,7 @@ public class GamePanel extends BorderPane {
                 return;
             }
             setBoardFlipped(humanAlliance.isBlack());
+            resetGameState();
             clearSelection();
             refreshMoveHistory();
             updateStatusLabel();
@@ -397,7 +421,7 @@ public class GamePanel extends BorderPane {
     }
 
     private void handleMousePressed(final MouseEvent event) {
-        if (aiThinking || animatingMove) {
+        if (aiThinking || animatingMove || gameOver) {
             return;
         }
         final int coordinate = screenToCoordinate(event.getX(), event.getY());
@@ -517,13 +541,18 @@ public class GamePanel extends BorderPane {
     }
 
     private boolean attemptMove(final int destinationCoordinate) {
-        if (aiThinking || animatingMove) {
+        if (aiThinking || animatingMove || gameOver) {
             return false;
         }
         if (selectedSquare == -1) {
             return false;
         }
         final int origin = selectedSquare;
+        final Optional<Piece> destinationPiece = model.getBoard().getPiece(destinationCoordinate);
+        if (destinationPiece.isPresent()
+                && destinationPiece.get().getPieceAlliance() == model.getBoard().getCurrentPlayer().getAlliance()) {
+            return false;
+        }
         GameModel.MoveAttemptResult result = model.makeMove(origin, destinationCoordinate);
         if (result.status() == GameModel.MoveAttemptStatus.PROMOTION_REQUIRED) {
             // Promotion requires user choice—prompt and retry with the selected piece.
@@ -534,9 +563,13 @@ public class GamePanel extends BorderPane {
             result = model.makeMove(origin, destinationCoordinate, choice);
         }
         if (result.status() != GameModel.MoveAttemptStatus.DONE) {
+            if (result.status() == GameModel.MoveAttemptStatus.ILLEGAL) {
+                playSound(errorClip);
+            }
             return false;
         }
-        handleSuccessfulMove(origin, destinationCoordinate);
+        final boolean wasCapture = result.wasCapture();
+        handleSuccessfulMove(origin, destinationCoordinate, wasCapture);
         return true;
     }
 
@@ -551,7 +584,9 @@ public class GamePanel extends BorderPane {
         pressWasSelected = false;
     }
 
-    private void handleSuccessfulMove(final int origin, final int destination) {
+    private void handleSuccessfulMove(final int origin, final int destination, final boolean wasCapture) {
+        final Clip clipToPlay = wasCapture && captureClip != null ? captureClip : moveClip;
+        playSound(clipToPlay);
         clearSelection();
         refreshMoveHistory();
         updateStatusLabel();
@@ -560,7 +595,7 @@ public class GamePanel extends BorderPane {
     }
 
     private void maybeRunAiMove() {
-        if (aiThinking || animatingMove) {
+        if (aiThinking || animatingMove || gameOver) {
             return;
         }
         final Player currentPlayer = model.getBoard().getCurrentPlayer();
@@ -664,7 +699,9 @@ public class GamePanel extends BorderPane {
         animationDestinationCoordinate = -1;
         animationProgress = 1.0;
         redraw();
-        maybeRunAiMove();
+        if (!checkForGameOver()) {
+            maybeRunAiMove();
+        }
     }
 
     private void completeAnimation() {
@@ -678,7 +715,9 @@ public class GamePanel extends BorderPane {
         animationDestinationCoordinate = -1;
         animationProgress = 1.0;
         redraw();
-        maybeRunAiMove();
+        if (!checkForGameOver()) {
+            maybeRunAiMove();
+        }
     }
 
     private void executeAiMove(final Move move) {
@@ -692,7 +731,7 @@ public class GamePanel extends BorderPane {
         final int destination = move.getDestinationCoordinate();
         final GameModel.MoveAttemptResult result = model.makeMove(move);
         if (result.status() == GameModel.MoveAttemptStatus.DONE) {
-            handleSuccessfulMove(origin, destination);
+            handleSuccessfulMove(origin, destination, result.wasCapture());
         } else {
             updateStatusLabel();
             updateCapturedDisplay();
@@ -755,6 +794,32 @@ public class GamePanel extends BorderPane {
         return choices.get(index);
     }
 
+    private Clip loadClip(final String resourcePath) {
+        final URL url = GamePanel.class.getResource(resourcePath);
+        if (url == null) {
+            LOGGER.log(Level.WARNING, "Audio resource not found: {0}", resourcePath);
+            return null;
+        }
+        try (AudioInputStream audioStream = AudioSystem.getAudioInputStream(url)) {
+            final Clip clip = AudioSystem.getClip();
+            clip.open(audioStream);
+            return clip;
+        } catch (final UnsupportedAudioFileException | IOException | LineUnavailableException ex) {
+            LOGGER.log(Level.WARNING, "Failed to load audio clip: " + resourcePath, ex);
+            return null;
+        }
+    }
+
+    private void playSound(final Clip clip) {
+        if (clip != null) {
+            if (clip.isRunning()) {
+                clip.stop();
+            }
+            clip.setFramePosition(0);
+            clip.start();
+        }
+    }
+
     private String promotionLabel(final PieceType type) {
         return switch (type) {
             case QUEEN -> "Queen";
@@ -770,6 +835,45 @@ public class GamePanel extends BorderPane {
         drawHighlights();
         drawPieces();
         drawCheckIndicator();
+    }
+
+    private boolean checkForGameOver() {
+        if (gameOver) {
+            return true;
+        }
+        final Player playerToMove = model.getBoard().getCurrentPlayer();
+        String message = null;
+        if (playerToMove.isInCheckMate()) {
+            message = playerToMove.getOpponent().getAlliance() + " wins by checkmate.";
+        } else if (playerToMove.isInStaleMate() || playerToMove.getLegalMoves().isEmpty()) {
+            message = "Draw by stalemate.";
+        }
+        if (message == null) {
+            return false;
+        }
+        gameOver = true;
+        boardCanvas.setDisable(true);
+        rightColumn.setDisable(false);
+        leftColumn.setDisable(false);
+        if (playerToMove.isInCheckMate() && gameOverClip != null) {
+            playSound(gameOverClip);
+        }
+        final Alert alert = new Alert(Alert.AlertType.INFORMATION);
+        alert.setTitle("Game Over");
+        alert.setHeaderText("Game Over");
+        alert.setContentText(message);
+        alert.showAndWait();
+        return true;
+    }
+
+    private void resetGameState() {
+        gameOver = false;
+        boardCanvas.setDisable(false);
+        rightColumn.setDisable(false);
+        leftColumn.setDisable(false);
+        if (gameOverClip != null && gameOverClip.isRunning()) {
+            gameOverClip.stop();
+        }
     }
 
     private void drawBoardTiles() {

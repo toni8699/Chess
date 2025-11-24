@@ -122,7 +122,7 @@ public class GameModel {
         sanHistory.add(san);
         recordOpeningMove(san);
         updateCapturedPieces(moveToExecute, capturedWhite, capturedBlack);
-        return MoveAttemptResult.done();
+        return MoveAttemptResult.done(moveToExecute.isAttack());
     }
 
     public MoveAttemptResult makeMove(final Move move) {
@@ -319,17 +319,19 @@ public class GameModel {
         PROMOTION_REQUIRED
     }
 
-    public record MoveAttemptResult(MoveAttemptStatus status, List<Piece.PieceType> promotionOptions) {
-        public static MoveAttemptResult done() {
-            return new MoveAttemptResult(MoveAttemptStatus.DONE, List.of());
+    public record MoveAttemptResult(MoveAttemptStatus status,
+                                    List<Piece.PieceType> promotionOptions,
+                                    boolean wasCapture) {
+        public static MoveAttemptResult done(final boolean wasCapture) {
+            return new MoveAttemptResult(MoveAttemptStatus.DONE, List.of(), wasCapture);
         }
 
         public static MoveAttemptResult illegal() {
-            return new MoveAttemptResult(MoveAttemptStatus.ILLEGAL, List.of());
+            return new MoveAttemptResult(MoveAttemptStatus.ILLEGAL, List.of(), false);
         }
 
         public static MoveAttemptResult promotionRequired(final List<Piece.PieceType> options) {
-            return new MoveAttemptResult(MoveAttemptStatus.PROMOTION_REQUIRED, List.copyOf(options));
+            return new MoveAttemptResult(MoveAttemptStatus.PROMOTION_REQUIRED, List.copyOf(options), false);
         }
     }
 
