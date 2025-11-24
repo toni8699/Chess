@@ -6,7 +6,6 @@ import engine.board.Move;
 import engine.pieces.Piece;
 import engine.player.Player;
 import engine.pieces.Piece.PieceType;
-import javafx.animation.AnimationTimer;
 import javafx.collections.FXCollections;
 import javafx.collections.ObservableList;
 import javafx.concurrent.Task;
@@ -38,19 +37,11 @@ import java.io.InputStream;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
-import java.net.URL;
 import java.util.ArrayList;
 import java.util.EnumMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
-import java.util.logging.Logger;
-import java.util.logging.Level;
-import javax.sound.sampled.AudioInputStream;
-import javax.sound.sampled.AudioSystem;
-import javax.sound.sampled.Clip;
-import javax.sound.sampled.LineUnavailableException;
-import javax.sound.sampled.UnsupportedAudioFileException;
 
 /**
  * JavaFX front-end that renders the immutable engine state and mediates
@@ -63,8 +54,6 @@ public class GamePanel extends BorderPane {
     private static final int BOARD_PIXELS = TILE_SIZE * BoardUtils.NUM_TILES_PER_ROW;
     private static final long MOVE_ANIMATION_DURATION_NANOS = 180_000_000L; // ~180 ms travel time
     private static final String STARTING_FEN = "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq -";
-    private static final Logger LOGGER = Logger.getLogger(GamePanel.class.getName());
-
     // Adapter between immutable engine and JavaFX view
     private final GameModel model;
     private final Canvas boardCanvas;
@@ -74,29 +63,14 @@ public class GamePanel extends BorderPane {
     private final ObservableList<String> moveHistoryData;
     private final ListView<String> moveHistoryView;
     private final Label statusLabel;
-    private final AnimationTimer animationTimer;
+    private final SoundManager soundManager;
+    private final MoveAnimator moveAnimator;
     private FlowPane whiteCapturedPane;
     private FlowPane blackCapturedPane;
-
-    private final Clip moveClip;
-    private final Clip captureClip;
-    private final Clip errorClip;
-    private final Clip gameOverClip;
 
     // Tracks which alliance is controlled by the human and whether the AI is mid-search.
     private Alliance humanAlliance = Alliance.WHITE;
     private boolean aiThinking;
-    // Animation state for smooth piece travel
-    private boolean animatingMove;
-    private double animationProgress;
-    private long animationStartNanos;
-    private Piece animationPiece;
-    private int animationSourceCoordinate = -1;
-    private int animationDestinationCoordinate = -1;
-    private double animationStartX;
-    private double animationStartY;
-    private double animationEndX;
-    private double animationEndY;
 
     private final Map<Alliance, Map<Piece.PieceType, Image>> imageCache = new EnumMap<>(Alliance.class);
 
@@ -120,10 +94,11 @@ public class GamePanel extends BorderPane {
 
     public GamePanel(final GameModel model) {
         this.model = model;
-        this.moveClip = loadClip("/res/sound/Move.wav");
-        this.captureClip = loadClip("/res/sound/capture.wav");
-        this.errorClip = loadClip("/res/sound/Error.wav");
-        this.gameOverClip = loadClip("/res/sound/gameover.wav");
+        this.soundManager = new SoundManager();
+        this.moveAnimator = new MoveAnimator(
+                MOVE_ANIMATION_DURATION_NANOS,
+                this::redraw,
+                this::onAnimationComplete);
         this.boardCanvas = new Canvas(BOARD_PIXELS, BOARD_PIXELS);
         this.gc = boardCanvas.getGraphicsContext2D();
         this.moveHistoryData = FXCollections.observableArrayList();
@@ -131,20 +106,6 @@ public class GamePanel extends BorderPane {
         this.statusLabel = new Label();
         this.rightColumn = buildRightColumn();
         this.leftColumn = buildLeftColumn();
-        this.animationTimer = new AnimationTimer() {
-            @Override
-            public void handle(final long now) {
-                if (!animatingMove) {
-                    return;
-                }
-                final long elapsed = now - animationStartNanos;
-                animationProgress = Math.min(1.0, elapsed / (double) MOVE_ANIMATION_DURATION_NANOS);
-                redraw();
-                if (animationProgress >= 1.0) {
-                    completeAnimation();
-                }
-            }
-        };
 
         initializePieceImages(); // Pre-load images to avoid IO jitter during painting
         setCenter(boardCanvas);
@@ -265,7 +226,7 @@ public class GamePanel extends BorderPane {
         final Button setupButton = new Button("Setup");
         setupButton.setMaxWidth(Double.MAX_VALUE);
         setupButton.setOnAction(e -> {
-            if (aiThinking || animatingMove) {
+            if (aiThinking || moveAnimator.isAnimating()) {
                 return;
             }
             showSetupDialog();
@@ -274,7 +235,7 @@ public class GamePanel extends BorderPane {
         final Button undoButton = new Button("Undo");
         undoButton.setMaxWidth(Double.MAX_VALUE);
         undoButton.setOnAction(e -> {
-            if (aiThinking || animatingMove) {
+            if (aiThinking || moveAnimator.isAnimating()) {
                 return;
             }
             if (model.undo()) {
@@ -293,7 +254,7 @@ public class GamePanel extends BorderPane {
         final Button restartButton = new Button("Restart");
         restartButton.setMaxWidth(Double.MAX_VALUE);
         restartButton.setOnAction(e -> {
-            if (aiThinking || animatingMove) {
+            if (aiThinking || moveAnimator.isAnimating()) {
                 return;
             }
             model.reset();
@@ -321,7 +282,7 @@ public class GamePanel extends BorderPane {
     }
 
     private void showSetupDialog() {
-        if (aiThinking || animatingMove || gameOver) {
+        if (aiThinking || moveAnimator.isAnimating() || gameOver) {
             return;
         }
         final ChoiceDialog<String> dialog = new ChoiceDialog<>("White", List.of("White", "Black"));
@@ -343,7 +304,7 @@ public class GamePanel extends BorderPane {
     }
 
     private void showFenDialog() {
-        if (aiThinking || animatingMove || gameOver) {
+        if (aiThinking || moveAnimator.isAnimating() || gameOver) {
             return;
         }
         final TextInputDialog dialog = new TextInputDialog(STARTING_FEN);
@@ -375,7 +336,7 @@ public class GamePanel extends BorderPane {
     }
 
     private void showPgnDialog() {
-        if (aiThinking || animatingMove || gameOver) {
+        if (aiThinking || moveAnimator.isAnimating() || gameOver) {
             return;
         }
         final Dialog<String> dialog = new Dialog<>();
@@ -421,7 +382,7 @@ public class GamePanel extends BorderPane {
     }
 
     private void handleMousePressed(final MouseEvent event) {
-        if (aiThinking || animatingMove || gameOver) {
+        if (aiThinking || moveAnimator.isAnimating() || gameOver) {
             return;
         }
         final int coordinate = screenToCoordinate(event.getX(), event.getY());
@@ -449,7 +410,7 @@ public class GamePanel extends BorderPane {
     }
 
     private void handleMouseDragged(final MouseEvent event) {
-        if (aiThinking || animatingMove) {
+        if (aiThinking || moveAnimator.isAnimating()) {
             return;
         }
         if (draggingPiece == null || draggingStartCoordinate == -1) {
@@ -462,7 +423,7 @@ public class GamePanel extends BorderPane {
     }
 
     private void handleMouseReleased(final MouseEvent event) {
-        if (aiThinking || animatingMove) {
+        if (aiThinking || moveAnimator.isAnimating()) {
             return;
         }
         if (!dragActive || draggingPiece == null || draggingStartCoordinate == -1) {
@@ -503,7 +464,7 @@ public class GamePanel extends BorderPane {
     }
 
     private void handleBoardClick(final double x, final double y) {
-        if (aiThinking || animatingMove) {
+        if (aiThinking || moveAnimator.isAnimating()) {
             return;
         }
         final int coordinate = screenToCoordinate(x, y);
@@ -541,7 +502,7 @@ public class GamePanel extends BorderPane {
     }
 
     private boolean attemptMove(final int destinationCoordinate) {
-        if (aiThinking || animatingMove || gameOver) {
+        if (aiThinking || moveAnimator.isAnimating() || gameOver) {
             return false;
         }
         if (selectedSquare == -1) {
@@ -564,7 +525,7 @@ public class GamePanel extends BorderPane {
         }
         if (result.status() != GameModel.MoveAttemptStatus.DONE) {
             if (result.status() == GameModel.MoveAttemptStatus.ILLEGAL) {
-                playSound(errorClip);
+                soundManager.playError();
             }
             return false;
         }
@@ -585,8 +546,11 @@ public class GamePanel extends BorderPane {
     }
 
     private void handleSuccessfulMove(final int origin, final int destination, final boolean wasCapture) {
-        final Clip clipToPlay = wasCapture && captureClip != null ? captureClip : moveClip;
-        playSound(clipToPlay);
+        if (wasCapture) {
+            soundManager.playCapture();
+        } else {
+            soundManager.playMove();
+        }
         clearSelection();
         refreshMoveHistory();
         updateStatusLabel();
@@ -595,7 +559,7 @@ public class GamePanel extends BorderPane {
     }
 
     private void maybeRunAiMove() {
-        if (aiThinking || animatingMove || gameOver) {
+        if (aiThinking || moveAnimator.isAnimating() || gameOver) {
             return;
         }
         final Player currentPlayer = model.getBoard().getCurrentPlayer();
@@ -664,56 +628,33 @@ public class GamePanel extends BorderPane {
     }
 
     private void startMoveAnimation(final int origin, final int destination) {
-        animationTimer.stop();
         final Optional<Piece> maybePiece = model.getBoard().getPiece(destination);
         if (maybePiece.isEmpty()) {
-            finishMoveWithoutAnimation();
+            finalizeMoveImmediately();
             return;
         }
         final double[] start = coordinateToScreen(origin);
         final double[] end = coordinateToScreen(destination);
         if (origin == destination
                 || (Math.abs(start[0] - end[0]) < 0.01 && Math.abs(start[1] - end[1]) < 0.01)) {
-            finishMoveWithoutAnimation();
+            finalizeMoveImmediately();
             return;
         }
-        animationPiece = maybePiece.get();
-        animationSourceCoordinate = origin;
-        animationDestinationCoordinate = destination;
-        animationStartX = start[0];
-        animationStartY = start[1];
-        animationEndX = end[0];
-        animationEndY = end[1];
-        animationProgress = 0.0;
-        animationStartNanos = System.nanoTime();
-        animatingMove = true;
-        animationTimer.start();
-        redraw();
+        moveAnimator.start(
+                maybePiece.get(),
+                destination,
+                start[0],
+                start[1],
+                end[0],
+                end[1]);
     }
 
-    private void finishMoveWithoutAnimation() {
-        animationTimer.stop();
-        animatingMove = false;
-        animationPiece = null;
-        animationSourceCoordinate = -1;
-        animationDestinationCoordinate = -1;
-        animationProgress = 1.0;
-        redraw();
-        if (!checkForGameOver()) {
-            maybeRunAiMove();
-        }
+    private void finalizeMoveImmediately() {
+        moveAnimator.cancel();
+        onAnimationComplete();
     }
 
-    private void completeAnimation() {
-        if (!animatingMove) {
-            return;
-        }
-        animationTimer.stop();
-        animatingMove = false;
-        animationPiece = null;
-        animationSourceCoordinate = -1;
-        animationDestinationCoordinate = -1;
-        animationProgress = 1.0;
+    private void onAnimationComplete() {
         redraw();
         if (!checkForGameOver()) {
             maybeRunAiMove();
@@ -740,7 +681,7 @@ public class GamePanel extends BorderPane {
     }
 
     private void showTopMoves() {
-        if (aiThinking || animatingMove) {
+        if (aiThinking || moveAnimator.isAnimating()) {
             return;
         }
         final List<GameModel.ScoredMove> moves = model.getBestMoves(3);
@@ -794,32 +735,6 @@ public class GamePanel extends BorderPane {
         return choices.get(index);
     }
 
-    private Clip loadClip(final String resourcePath) {
-        final URL url = GamePanel.class.getResource(resourcePath);
-        if (url == null) {
-            LOGGER.log(Level.WARNING, "Audio resource not found: {0}", resourcePath);
-            return null;
-        }
-        try (AudioInputStream audioStream = AudioSystem.getAudioInputStream(url)) {
-            final Clip clip = AudioSystem.getClip();
-            clip.open(audioStream);
-            return clip;
-        } catch (final UnsupportedAudioFileException | IOException | LineUnavailableException ex) {
-            LOGGER.log(Level.WARNING, "Failed to load audio clip: " + resourcePath, ex);
-            return null;
-        }
-    }
-
-    private void playSound(final Clip clip) {
-        if (clip != null) {
-            if (clip.isRunning()) {
-                clip.stop();
-            }
-            clip.setFramePosition(0);
-            clip.start();
-        }
-    }
-
     private String promotionLabel(final PieceType type) {
         return switch (type) {
             case QUEEN -> "Queen";
@@ -845,6 +760,7 @@ public class GamePanel extends BorderPane {
         String message = null;
         if (playerToMove.isInCheckMate()) {
             message = playerToMove.getOpponent().getAlliance() + " wins by checkmate.";
+            soundManager.playGameOver();
         } else if (playerToMove.isInStaleMate() || playerToMove.getLegalMoves().isEmpty()) {
             message = "Draw by stalemate.";
         }
@@ -855,9 +771,6 @@ public class GamePanel extends BorderPane {
         boardCanvas.setDisable(true);
         rightColumn.setDisable(false);
         leftColumn.setDisable(false);
-        if (playerToMove.isInCheckMate() && gameOverClip != null) {
-            playSound(gameOverClip);
-        }
         final Alert alert = new Alert(Alert.AlertType.INFORMATION);
         alert.setTitle("Game Over");
         alert.setHeaderText("Game Over");
@@ -871,9 +784,8 @@ public class GamePanel extends BorderPane {
         boardCanvas.setDisable(false);
         rightColumn.setDisable(false);
         leftColumn.setDisable(false);
-        if (gameOverClip != null && gameOverClip.isRunning()) {
-            gameOverClip.stop();
-        }
+        moveAnimator.cancel();
+        soundManager.resetGameOver();
     }
 
     private void drawBoardTiles() {
@@ -905,13 +817,14 @@ public class GamePanel extends BorderPane {
     }
 
     private void drawPieces() {
-        final boolean animatePiece = animatingMove && animationPiece != null;
+        final boolean animatePiece = moveAnimator.isAnimating() && moveAnimator.getPiece() != null;
+        final int animatedDestination = animatePiece ? moveAnimator.getDestinationCoordinate() : -1;
         for (int coordinate = 0; coordinate < BoardUtils.NUM_TILES; coordinate++) {
             final Optional<Piece> piece = model.getBoard().getPiece(coordinate);
             if (piece.isEmpty()) {
                 continue;
             }
-            if (animatePiece && coordinate == animationDestinationCoordinate) {
+            if (animatePiece && coordinate == animatedDestination) {
                 // Skip drawing the piece at its destination; it will be drawn via animation.
                 continue;
             }
@@ -929,9 +842,12 @@ public class GamePanel extends BorderPane {
         }
 
         if (animatePiece) {
-            final double currentX = animationStartX + (animationEndX - animationStartX) * animationProgress;
-            final double currentY = animationStartY + (animationEndY - animationStartY) * animationProgress;
-            final Image image = getImageForPiece(animationPiece);
+            final double progress = moveAnimator.getProgress();
+            final double currentX = moveAnimator.getStartX()
+                    + (moveAnimator.getEndX() - moveAnimator.getStartX()) * progress;
+            final double currentY = moveAnimator.getStartY()
+                    + (moveAnimator.getEndY() - moveAnimator.getStartY()) * progress;
+            final Image image = getImageForPiece(moveAnimator.getPiece());
             gc.drawImage(image, currentX, currentY, TILE_SIZE, TILE_SIZE);
         }
     }
